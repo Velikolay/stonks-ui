@@ -1,8 +1,9 @@
 const API_BASE_URL = "http://localhost:8000";
 
 export interface FinancialMetric {
-  label: string;
   normalized_label: string;
+  statement: string;
+  count: number;
 }
 
 export interface FinancialDataPoint {
@@ -32,15 +33,24 @@ export class FinancialDataService {
 
     const metrics = await response.json();
 
+    // Debug: Log the raw response
+    console.log("API Response:", metrics);
+    console.log("First 3 items structure:", metrics.slice(0, 3).map((item: unknown) => ({
+      keys: Object.keys(item as Record<string, unknown>),
+      values: item
+    })));
+
     // Filter out invalid metrics
-    return metrics.filter(
+    const filteredMetrics = metrics.filter(
       (metric: FinancialMetric) =>
         metric &&
         metric.normalized_label &&
-        metric.normalized_label.trim() !== "" &&
-        metric.label &&
-        metric.label.trim() !== ""
+        metric.normalized_label.trim() !== ""
     );
+    
+    console.log("Filtered metrics from service:", filteredMetrics);
+    
+    return filteredMetrics;
   }
 
   static async getFinancialData(
@@ -59,14 +69,17 @@ export class FinancialDataService {
     const rawData = await response.json();
 
     // Transform the API response to our expected format
-    // Assuming the API returns data in a format like: { [date]: value }
-    const data: FinancialDataPoint[] = Object.entries(rawData).map(
-      ([date, value]) => ({
-        date,
-        value:
-          typeof value === "number" ? value : parseFloat(value as string) || 0,
-      })
-    );
+    // The API returns an array with one item containing the values
+    const metricData = Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : rawData;
+    
+    if (!metricData || !metricData.values) {
+      throw new Error("Invalid data structure received from API");
+    }
+
+    const data: FinancialDataPoint[] = metricData.values.map((item: any) => ({
+      date: item.period_end,
+      value: typeof item.value === "number" ? item.value : parseFloat(item.value) || 0,
+    }));
 
     // Sort by date (oldest first)
     data.sort(

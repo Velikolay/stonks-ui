@@ -9,7 +9,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { ApiTest } from "@/components/financials/api-test";
 
 // This function demonstrates SSR - it will run on the server
 async function getServerTime() {
@@ -160,10 +159,7 @@ export default async function Home() {
             </Card>
           </div>
 
-          {/* API Test */}
-          <div className="mt-8">
-            <ApiTest />
-          </div>
+
 
           {/* Footer */}
           <footer className="mt-16 text-center text-slate-600 dark:text-slate-400">

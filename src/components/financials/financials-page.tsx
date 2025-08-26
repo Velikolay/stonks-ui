@@ -20,8 +20,9 @@ import { FinancialChart } from "./financial-chart";
 import { FinancialDataService } from "@/lib/services/financial-data";
 
 interface FinancialMetric {
-  label: string;
   normalized_label: string;
+  statement: string;
+  count: number;
 }
 
 interface FinancialDataPoint {
@@ -64,6 +65,7 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
           ticker,
           granularity
         );
+
         // Remove duplicates and filter out empty normalized_labels
         const uniqueMetrics = metrics
           .filter(
@@ -77,6 +79,7 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
             metric =>
               metric.normalized_label && metric.normalized_label.trim() !== ""
           );
+
         setAvailableMetrics(uniqueMetrics);
 
         // Auto-select first metric if none selected
@@ -172,9 +175,7 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
                           key={`${metric.normalized_label}-${index}`}
                           value={metric.normalized_label || `metric-${index}`}
                         >
-                          {metric.label ||
-                            metric.normalized_label ||
-                            `Metric ${index + 1}`}
+                          {metric.normalized_label} ({metric.count})
                         </SelectItem>
                       ))
                     ) : (
@@ -200,26 +201,6 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
           </CardContent>
         </Card>
 
-        {/* Debug Info */}
-        <Card className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
-          <CardContent className="pt-6">
-            <p className="text-blue-600 dark:text-blue-400">
-              Available Metrics: {availableMetrics.length} | Selected:{" "}
-              {selectedMetric} | Loading: {loading.toString()}
-            </p>
-            {availableMetrics.length > 0 && (
-              <details className="mt-2">
-                <summary className="cursor-pointer text-sm">
-                  Show first 3 metrics
-                </summary>
-                <pre className="text-xs mt-2 overflow-auto">
-                  {JSON.stringify(availableMetrics.slice(0, 3), null, 2)}
-                </pre>
-              </details>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Error Display */}
         {error && (
           <Card className="mb-6 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
@@ -233,11 +214,11 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
         {financialData && (
           <Card>
             <CardHeader>
-              <CardTitle>
-                {availableMetrics.find(
-                  m => m.normalized_label === selectedMetric
-                )?.label || selectedMetric}
-              </CardTitle>
+                              <CardTitle>
+                  {availableMetrics.find(
+                    m => m.normalized_label === selectedMetric
+                  )?.normalized_label || selectedMetric}
+                </CardTitle>
               <CardDescription>
                 {ticker} -{" "}
                 {granularity.charAt(0).toUpperCase() + granularity.slice(1)}{" "}
