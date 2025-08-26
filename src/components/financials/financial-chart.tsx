@@ -17,7 +17,7 @@ interface FinancialChartProps {
 
 export function FinancialChart({ data }: FinancialChartProps) {
   // Format the data for the chart
-  const chartData = data.data.map((point) => ({
+  const chartData = data.data.map(point => ({
     date: point.date,
     value: point.value,
     // Format the date for display
@@ -42,7 +42,11 @@ export function FinancialChart({ data }: FinancialChartProps) {
     }
   };
 
-  const CustomTooltip = ({ active, payload, label }: {
+  const CustomTooltip = ({
+    active,
+    payload,
+    label,
+  }: {
     active?: boolean;
     payload?: Array<{ value: number }>;
     label?: string;
@@ -65,7 +69,10 @@ export function FinancialChart({ data }: FinancialChartProps) {
   return (
     <div className="w-full h-96">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <BarChart
+          data={chartData}
+          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis
             dataKey="formattedDate"

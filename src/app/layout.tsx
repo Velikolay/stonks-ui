@@ -14,7 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Stonks UI - Financial Data Visualization",
-  description: "A modern Next.js application for visualizing financial data with interactive charts and real-time metrics.",
+  description:
+    "A modern Next.js application for visualizing financial data with interactive charts and real-time metrics.",
 };
 
 export default function RootLayout({

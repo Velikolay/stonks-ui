@@ -30,7 +30,17 @@ export class FinancialDataService {
       throw new Error(`Failed to fetch metrics: ${response.statusText}`);
     }
 
-    return response.json();
+    const metrics = await response.json();
+
+    // Filter out invalid metrics
+    return metrics.filter(
+      (metric: FinancialMetric) =>
+        metric &&
+        metric.normalized_label &&
+        metric.normalized_label.trim() !== "" &&
+        metric.label &&
+        metric.label.trim() !== ""
+    );
   }
 
   static async getFinancialData(
@@ -47,22 +57,27 @@ export class FinancialDataService {
     }
 
     const rawData = await response.json();
-    
+
     // Transform the API response to our expected format
     // Assuming the API returns data in a format like: { [date]: value }
-    const data: FinancialDataPoint[] = Object.entries(rawData).map(([date, value]) => ({
-      date,
-      value: typeof value === 'number' ? value : parseFloat(value as string) || 0
-    }));
+    const data: FinancialDataPoint[] = Object.entries(rawData).map(
+      ([date, value]) => ({
+        date,
+        value:
+          typeof value === "number" ? value : parseFloat(value as string) || 0,
+      })
+    );
 
     // Sort by date (oldest first)
-    data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    data.sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
 
     return {
       ticker,
       metric: normalizedLabel,
       granularity,
-      data
+      data,
     };
   }
 }

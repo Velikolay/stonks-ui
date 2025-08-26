@@ -1,9 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FinancialChart } from "./financial-chart";
 import { FinancialDataService } from "@/lib/services/financial-data";
 
@@ -29,34 +41,53 @@ interface FinancialsPageProps {
 }
 
 export function FinancialsPage({ ticker }: FinancialsPageProps) {
-  const [availableMetrics, setAvailableMetrics] = useState<FinancialMetric[]>([]);
+  const [availableMetrics, setAvailableMetrics] = useState<FinancialMetric[]>(
+    []
+  );
   const [selectedMetric, setSelectedMetric] = useState<string>("");
-  const [granularity, setGranularity] = useState<"yearly" | "quarterly">("quarterly");
-  const [financialData, setFinancialData] = useState<FinancialData | null>(null);
+  const [granularity, setGranularity] = useState<"yearly" | "quarterly">(
+    "quarterly"
+  );
+  const [financialData, setFinancialData] = useState<FinancialData | null>(
+    null
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-    // Fetch available metrics when component mounts or ticker changes
+  // Fetch available metrics when component mounts or ticker changes
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
         setLoading(true);
         setError(null);
-        const metrics = await FinancialDataService.getAvailableMetrics(ticker, granularity);
-        // Remove duplicates based on normalized_label
-        const uniqueMetrics = metrics.filter((metric, index, self) => 
-          index === self.findIndex(m => m.normalized_label === metric.normalized_label)
+        const metrics = await FinancialDataService.getAvailableMetrics(
+          ticker,
+          granularity
         );
+        // Remove duplicates and filter out empty normalized_labels
+        const uniqueMetrics = metrics
+          .filter(
+            (metric, index, self) =>
+              index ===
+              self.findIndex(
+                m => m.normalized_label === metric.normalized_label
+              )
+          )
+          .filter(
+            metric =>
+              metric.normalized_label && metric.normalized_label.trim() !== ""
+          );
         setAvailableMetrics(uniqueMetrics);
-        
+
         // Auto-select first metric if none selected
         if (uniqueMetrics.length > 0 && !selectedMetric) {
-          setSelectedMetric(uniqueMetrics[0].normalized_label);
+          const firstMetric = uniqueMetrics[0];
+          setSelectedMetric(firstMetric.normalized_label || `metric-0`);
         }
-              } catch (_err) {
-          setError("Failed to load available metrics");
-          // console.error("Error fetching metrics:", err);
-        } finally {
+      } catch (err) {
+        setError("Failed to load available metrics");
+        // console.error("Error fetching metrics:", err);
+      } finally {
         setLoading(false);
       }
     };
@@ -72,12 +103,16 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
       try {
         setLoading(true);
         setError(null);
-        const data = await FinancialDataService.getFinancialData(ticker, selectedMetric, granularity);
+        const data = await FinancialDataService.getFinancialData(
+          ticker,
+          selectedMetric,
+          granularity
+        );
         setFinancialData(data);
-              } catch (_err) {
-          setError("Failed to load financial data");
-          // console.error("Error fetching financial data:", err);
-        } finally {
+      } catch (err) {
+        setError("Failed to load financial data");
+        // console.error("Error fetching financial data:", err);
+      } finally {
         setLoading(false);
       }
     };
@@ -86,7 +121,7 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
   }, [ticker, selectedMetric, granularity]);
 
   const handleGranularityToggle = () => {
-    setGranularity(prev => prev === "quarterly" ? "yearly" : "quarterly");
+    setGranularity(prev => (prev === "quarterly" ? "yearly" : "quarterly"));
   };
 
   return (
@@ -117,16 +152,36 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
                   Financial Metric
                 </label>
-                <Select value={selectedMetric} onValueChange={setSelectedMetric}>
+                <Select
+                  value={selectedMetric}
+                  onValueChange={setSelectedMetric}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a metric" />
+                    <SelectValue
+                      placeholder={
+                        availableMetrics.length > 0
+                          ? "Select a metric"
+                          : "Loading metrics..."
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableMetrics.map((metric, index) => (
-                      <SelectItem key={`${metric.normalized_label}-${index}`} value={metric.normalized_label}>
-                        {metric.label}
+                    {availableMetrics.length > 0 ? (
+                      availableMetrics.map((metric, index) => (
+                        <SelectItem
+                          key={`${metric.normalized_label}-${index}`}
+                          value={metric.normalized_label || `metric-${index}`}
+                        >
+                          {metric.label ||
+                            metric.normalized_label ||
+                            `Metric ${index + 1}`}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-metrics" disabled>
+                        No metrics available
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -145,6 +200,26 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
           </CardContent>
         </Card>
 
+        {/* Debug Info */}
+        <Card className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+          <CardContent className="pt-6">
+            <p className="text-blue-600 dark:text-blue-400">
+              Available Metrics: {availableMetrics.length} | Selected:{" "}
+              {selectedMetric} | Loading: {loading.toString()}
+            </p>
+            {availableMetrics.length > 0 && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-sm">
+                  Show first 3 metrics
+                </summary>
+                <pre className="text-xs mt-2 overflow-auto">
+                  {JSON.stringify(availableMetrics.slice(0, 3), null, 2)}
+                </pre>
+              </details>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Error Display */}
         {error && (
           <Card className="mb-6 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
@@ -159,10 +234,14 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
           <Card>
             <CardHeader>
               <CardTitle>
-                {availableMetrics.find(m => m.normalized_label === selectedMetric)?.label || selectedMetric}
+                {availableMetrics.find(
+                  m => m.normalized_label === selectedMetric
+                )?.label || selectedMetric}
               </CardTitle>
               <CardDescription>
-                {ticker} - {granularity.charAt(0).toUpperCase() + granularity.slice(1)} Data
+                {ticker} -{" "}
+                {granularity.charAt(0).toUpperCase() + granularity.slice(1)}{" "}
+                Data
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -177,7 +256,9 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
             <CardContent className="pt-6">
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 dark:border-slate-100"></div>
-                <span className="ml-2 text-slate-600 dark:text-slate-400">Loading...</span>
+                <span className="ml-2 text-slate-600 dark:text-slate-400">
+                  Loading...
+                </span>
               </div>
             </CardContent>
           </Card>
