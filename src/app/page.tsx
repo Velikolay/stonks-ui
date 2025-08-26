@@ -8,6 +8,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
+import { ApiTest } from "@/components/financials/api-test";
 
 // This function demonstrates SSR - it will run on the server
 async function getServerTime() {
@@ -134,6 +136,33 @@ export default async function Home() {
                 </CardContent>
               </Card>
             </div>
+          </div>
+
+          {/* Financials Demo */}
+          <div className="mt-12">
+            <Card>
+              <CardHeader>
+                <CardTitle>Financial Data Demo</CardTitle>
+                <CardDescription>
+                  View financial metrics and charts for any stock ticker
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-4">
+                  <Link href="/AAPL/financials">
+                    <Button>View AAPL Financials</Button>
+                  </Link>
+                  <Link href="/MSFT/financials">
+                    <Button variant="outline">View MSFT Financials</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* API Test */}
+          <div className="mt-8">
+            <ApiTest />
           </div>
 
           {/* Footer */}
