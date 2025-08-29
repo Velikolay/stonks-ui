@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import ReactECharts from "echarts-for-react";
 import { FinancialData } from "@/lib/services/financial-data";
 
 interface FinancialChartProps {
@@ -42,61 +34,97 @@ export function FinancialChart({ data }: FinancialChartProps) {
     }
   };
 
-  const CustomTooltip = ({
-    active,
-    payload,
-    label,
-  }: {
-    active?: boolean;
-    payload?: Array<{ value: number }>;
-    label?: string;
-  }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white dark:bg-slate-800 p-3 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg">
-          <p className="font-medium text-slate-900 dark:text-slate-100">
-            {label}
-          </p>
-          <p className="text-slate-600 dark:text-slate-400">
-            {formatValue(payload[0].value)}
-          </p>
-        </div>
-      );
-    }
-    return null;
+  const option = {
+    grid: {
+      left: '10%',
+      right: '10%',
+      top: '10%',
+      bottom: '15%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: chartData.map(item => item.formattedDate),
+      axisLine: {
+        lineStyle: {
+          color: '#64748b'
+        }
+      },
+      axisTick: {
+        show: false
+      },
+      axisLabel: {
+        color: '#64748b',
+        fontSize: 12
+      }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: {
+        lineStyle: {
+          color: '#64748b'
+        }
+      },
+      axisTick: {
+        show: false
+      },
+      axisLabel: {
+        color: '#64748b',
+        fontSize: 12,
+        formatter: (value: number) => formatValue(value)
+      },
+      splitLine: {
+        lineStyle: {
+          color: '#e2e8f0',
+          type: 'dashed'
+        }
+      }
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderColor: '#e2e8f0',
+      textStyle: {
+        color: '#1e293b'
+      },
+      formatter: (params: Array<{ name: string; value: number }>) => {
+        const data = params[0];
+        return `
+          <div style="padding: 8px;">
+            <div style="font-weight: 600; color: #1e293b; margin-bottom: 4px;">
+              ${data.name}
+            </div>
+            <div style="color: #64748b;">
+              ${formatValue(data.value)}
+            </div>
+          </div>
+        `;
+      }
+    },
+    series: [
+      {
+        type: 'bar',
+        data: chartData.map(item => item.value),
+        itemStyle: {
+          color: '#3b82f6',
+          borderRadius: [4, 4, 0, 0]
+        },
+        emphasis: {
+          itemStyle: {
+            opacity: 0.8
+          }
+        }
+      }
+    ]
   };
 
   return (
     <div className="w-full h-96">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={chartData}
-          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis
-            dataKey="formattedDate"
-            stroke="#64748b"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            stroke="#64748b"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={formatValue}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Bar
-            dataKey="value"
-            fill="#3b82f6"
-            radius={[4, 4, 0, 0]}
-            className="hover:opacity-80 transition-opacity"
-          />
-        </BarChart>
-      </ResponsiveContainer>
+      <ReactECharts
+        option={option}
+        style={{ height: '100%', width: '100%' }}
+        opts={{ renderer: 'canvas' }}
+      />
     </div>
   );
 }
