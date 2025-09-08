@@ -21,16 +21,19 @@ export function FinancialChart({ data }: FinancialChartProps) {
 
   // Format the value for display in tooltip
   const formatValue = (value: number) => {
-    if (value >= 1e12) {
-      return `$${(value / 1e12).toFixed(2)}T`;
-    } else if (value >= 1e9) {
-      return `$${(value / 1e9).toFixed(2)}B`;
-    } else if (value >= 1e6) {
-      return `$${(value / 1e6).toFixed(2)}M`;
-    } else if (value >= 1e3) {
-      return `$${(value / 1e3).toFixed(2)}K`;
+    const absValue = Math.abs(value);
+    const sign = value < 0 ? '-' : '';
+    
+    if (absValue >= 1e12) {
+      return `${sign}$${(absValue / 1e12).toFixed(2)}T`;
+    } else if (absValue >= 1e9) {
+      return `${sign}$${(absValue / 1e9).toFixed(2)}B`;
+    } else if (absValue >= 1e6) {
+      return `${sign}$${(absValue / 1e6).toFixed(2)}M`;
+    } else if (absValue >= 1e3) {
+      return `${sign}$${(absValue / 1e3).toFixed(2)}K`;
     } else {
-      return `$${value.toFixed(2)}`;
+      return `${sign}$${absValue.toFixed(2)}`;
     }
   };
 
@@ -104,11 +107,12 @@ export function FinancialChart({ data }: FinancialChartProps) {
     series: [
       {
         type: 'bar',
-        data: chartData.map(item => item.value),
-        itemStyle: {
-          color: '#3b82f6',
-          borderRadius: [4, 4, 0, 0]
-        },
+        data: chartData.map(item => ({
+          value: item.value,
+          itemStyle: {
+          color: item.value >= 0 ? '#3b82f6' : '#ef4444',
+          borderRadius: item.value >= 0 ? [4, 4, 0, 0] : [0, 0, 4, 4]
+        }})),
         emphasis: {
           itemStyle: {
             opacity: 0.8
