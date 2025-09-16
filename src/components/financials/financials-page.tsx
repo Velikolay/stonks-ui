@@ -127,6 +127,33 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
     setGranularity(prev => (prev === "quarterly" ? "yearly" : "quarterly"));
   };
 
+  // Group metrics by statement and order them
+  const groupedMetrics = availableMetrics.reduce(
+    (groups, metric) => {
+      const statement = metric.statement || "Other";
+      if (!groups[statement]) {
+        groups[statement] = [];
+      }
+      groups[statement].push(metric);
+      return groups;
+    },
+    {} as Record<string, FinancialMetric[]>
+  );
+
+  // Define statement order (most common financial statements first)
+  const statementOrder = [
+    "Income Statement",
+    "Balance Sheet",
+    "Cash Flow Statement",
+  ];
+
+  // Sort metrics within each group by normalized_label
+  Object.keys(groupedMetrics).forEach(statement => {
+    groupedMetrics[statement].sort((a, b) =>
+      a.normalized_label.localeCompare(b.normalized_label)
+    );
+  });
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
@@ -170,14 +197,28 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {availableMetrics.length > 0 ? (
-                      availableMetrics.map((metric, index) => (
-                        <SelectItem
-                          key={`${metric.normalized_label}-${index}`}
-                          value={metric.normalized_label || `metric-${index}`}
-                        >
-                          {metric.normalized_label} ({metric.count})
-                        </SelectItem>
-                      ))
+                      statementOrder
+                        .filter(
+                          statement => groupedMetrics[statement]?.length > 0
+                        )
+                        .map(statement => (
+                          <div key={statement}>
+                            <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">
+                              {statement}
+                            </div>
+                            {groupedMetrics[statement].map((metric, index) => (
+                              <SelectItem
+                                key={`${metric.normalized_label}-${index}`}
+                                value={
+                                  metric.normalized_label || `metric-${index}`
+                                }
+                                className="pl-6"
+                              >
+                                {metric.normalized_label} ({metric.count})
+                              </SelectItem>
+                            ))}
+                          </div>
+                        ))
                     ) : (
                       <SelectItem value="no-metrics" disabled>
                         No metrics available
@@ -214,11 +255,11 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
         {financialData && (
           <Card>
             <CardHeader>
-                              <CardTitle>
-                  {availableMetrics.find(
-                    m => m.normalized_label === selectedMetric
-                  )?.normalized_label || selectedMetric}
-                </CardTitle>
+              <CardTitle>
+                {availableMetrics.find(
+                  m => m.normalized_label === selectedMetric
+                )?.normalized_label || selectedMetric}
+              </CardTitle>
               <CardDescription>
                 {ticker} -{" "}
                 {granularity.charAt(0).toUpperCase() + granularity.slice(1)}{" "}

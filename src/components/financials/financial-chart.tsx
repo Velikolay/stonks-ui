@@ -22,8 +22,8 @@ export function FinancialChart({ data }: FinancialChartProps) {
   // Format the value for display in tooltip
   const formatValue = (value: number) => {
     const absValue = Math.abs(value);
-    const sign = value < 0 ? '-' : '';
-    
+    const sign = value < 0 ? "-" : "";
+
     if (absValue >= 1e12) {
       return `${sign}$${(absValue / 1e12).toFixed(2)}T`;
     } else if (absValue >= 1e9) {
@@ -39,56 +39,56 @@ export function FinancialChart({ data }: FinancialChartProps) {
 
   const option = {
     grid: {
-      left: '10%',
-      right: '10%',
-      top: '10%',
-      bottom: '15%',
-      containLabel: true
+      left: "10%",
+      right: "10%",
+      top: "10%",
+      bottom: "15%",
+      containLabel: true,
     },
     xAxis: {
-      type: 'category',
+      type: "category",
       data: chartData.map(item => item.formattedDate),
       axisLine: {
         lineStyle: {
-          color: '#64748b'
-        }
+          color: "#64748b",
+        },
       },
       axisTick: {
-        show: false
+        show: false,
       },
       axisLabel: {
-        color: '#64748b',
-        fontSize: 12
-      }
+        color: "#64748b",
+        fontSize: 12,
+      },
     },
     yAxis: {
-      type: 'value',
+      type: "value",
       axisLine: {
         lineStyle: {
-          color: '#64748b'
-        }
+          color: "#64748b",
+        },
       },
       axisTick: {
-        show: false
+        show: false,
       },
       axisLabel: {
-        color: '#64748b',
+        color: "#64748b",
         fontSize: 12,
-        formatter: (value: number) => formatValue(value)
+        formatter: (value: number) => formatValue(value),
       },
       splitLine: {
         lineStyle: {
-          color: '#e2e8f0',
-          type: 'dashed'
-        }
-      }
+          color: "#e2e8f0",
+          type: "dashed",
+        },
+      },
     },
     tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderColor: '#e2e8f0',
+      trigger: "axis",
+      backgroundColor: "rgba(255, 255, 255, 0.95)",
+      borderColor: "#e2e8f0",
       textStyle: {
-        color: '#1e293b'
+        color: "#1e293b",
       },
       formatter: (params: Array<{ name: string; value: number }>) => {
         const data = params[0];
@@ -102,32 +102,33 @@ export function FinancialChart({ data }: FinancialChartProps) {
             </div>
           </div>
         `;
-      }
+      },
     },
     series: [
       {
-        type: 'bar',
+        type: "bar",
         data: chartData.map(item => ({
           value: item.value,
           itemStyle: {
-          color: item.value >= 0 ? '#3b82f6' : '#ef4444',
-          borderRadius: item.value >= 0 ? [4, 4, 0, 0] : [0, 0, 4, 4]
-        }})),
+            color: item.value >= 0 ? "#3b82f6" : "#ef4444",
+            borderRadius: item.value >= 0 ? [4, 4, 0, 0] : [0, 0, 4, 4],
+          },
+        })),
         emphasis: {
           itemStyle: {
-            opacity: 0.8
-          }
-        }
-      }
-    ]
+            opacity: 0.8,
+          },
+        },
+      },
+    ],
   };
 
   return (
     <div className="w-full h-96">
       <ReactECharts
         option={option}
-        style={{ height: '100%', width: '100%' }}
-        opts={{ renderer: 'canvas' }}
+        style={{ height: "100%", width: "100%" }}
+        opts={{ renderer: "canvas" }}
       />
     </div>
   );

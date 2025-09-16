@@ -35,10 +35,13 @@ export class FinancialDataService {
 
     // Debug: Log the raw response
     console.log("API Response:", metrics);
-    console.log("First 3 items structure:", metrics.slice(0, 3).map((item: unknown) => ({
-      keys: Object.keys(item as Record<string, unknown>),
-      values: item
-    })));
+    console.log(
+      "First 3 items structure:",
+      metrics.slice(0, 3).map((item: unknown) => ({
+        keys: Object.keys(item as Record<string, unknown>),
+        values: item,
+      }))
+    );
 
     // Filter out invalid metrics
     const filteredMetrics = metrics.filter(
@@ -47,9 +50,9 @@ export class FinancialDataService {
         metric.normalized_label &&
         metric.normalized_label.trim() !== ""
     );
-    
+
     console.log("Filtered metrics from service:", filteredMetrics);
-    
+
     return filteredMetrics;
   }
 
@@ -70,16 +73,22 @@ export class FinancialDataService {
 
     // Transform the API response to our expected format
     // The API returns an array with one item containing the values
-    const metricData = Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : rawData;
-    
+    const metricData =
+      Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : rawData;
+
     if (!metricData || !metricData.values) {
       throw new Error("Invalid data structure received from API");
     }
 
-    const data: FinancialDataPoint[] = metricData.values.map((item: any) => ({
-      date: item.period_end,
-      value: typeof item.value === "number" ? item.value : parseFloat(item.value) || 0,
-    }));
+    const data: FinancialDataPoint[] = metricData.values.map(
+      (item: { period_end: string; value: string | number }) => ({
+        date: item.period_end,
+        value:
+          typeof item.value === "number"
+            ? item.value
+            : parseFloat(item.value) || 0,
+      })
+    );
 
     // Sort by date (oldest first)
     data.sort(

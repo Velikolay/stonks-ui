@@ -159,8 +159,6 @@ export default async function Home() {
             </Card>
           </div>
 
-
-
           {/* Footer */}
           <footer className="mt-16 text-center text-slate-600 dark:text-slate-400">
             <p className="text-sm">
