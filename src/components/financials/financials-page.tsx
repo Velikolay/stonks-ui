@@ -31,11 +31,17 @@ interface FinancialDataPoint {
   value: number;
 }
 
+interface FinancialDataSeries {
+  name: string;
+  data: FinancialDataPoint[];
+}
+
 interface FinancialData {
   ticker: string;
   metric: string;
   granularity: "yearly" | "quarterly";
   data: FinancialDataPoint[];
+  series?: FinancialDataSeries[];
 }
 
 interface FinancialsPageProps {
@@ -53,6 +59,7 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
   const [financialData, setFinancialData] = useState<FinancialData | null>(
     null
   );
+  const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -126,6 +133,9 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
           axis
         );
         setFinancialData(data);
+
+        // Show all series by default (empty array means show all)
+        setSelectedSeries([]);
       } catch (err) {
         setError("Failed to load financial data");
         // console.error("Error fetching financial data:", err);
@@ -306,7 +316,11 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <FinancialChart data={financialData} />
+              <FinancialChart
+                data={financialData}
+                selectedSeries={selectedSeries}
+                onSeriesChange={setSelectedSeries}
+              />
             </CardContent>
           </Card>
         )}
