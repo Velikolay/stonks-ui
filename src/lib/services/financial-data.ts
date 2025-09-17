@@ -4,6 +4,7 @@ export interface FinancialMetric {
   normalized_label: string;
   statement: string;
   count: number;
+  axis?: string;
 }
 
 export interface FinancialDataPoint {
@@ -59,11 +60,18 @@ export class FinancialDataService {
   static async getFinancialData(
     ticker: string,
     normalizedLabel: string,
-    granularity: "yearly" | "quarterly"
+    granularity: "yearly" | "quarterly",
+    axis?: string
   ): Promise<FinancialData> {
-    const response = await fetch(
-      `${API_BASE_URL}/financials/?ticker=${ticker}&granularity=${granularity}&normalized_labels=${encodeURIComponent(normalizedLabel)}`
-    );
+    const url = new URL(`${API_BASE_URL}/financials/`);
+    url.searchParams.set("ticker", ticker);
+    url.searchParams.set("granularity", granularity);
+    url.searchParams.set("normalized_labels", normalizedLabel);
+    if (axis) {
+      url.searchParams.set("axis", axis);
+    }
+
+    const response = await fetch(url.toString());
 
     if (!response.ok) {
       throw new Error(`Failed to fetch financial data: ${response.statusText}`);

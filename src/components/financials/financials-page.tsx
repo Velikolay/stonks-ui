@@ -23,6 +23,7 @@ interface FinancialMetric {
   normalized_label: string;
   statement: string;
   count: number;
+  axis?: string;
 }
 
 interface FinancialDataPoint {
@@ -67,12 +68,15 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
         );
 
         // Remove duplicates and filter out empty normalized_labels
+        // Consider both normalized_label and axis for uniqueness
         const uniqueMetrics = metrics
           .filter(
             (metric, index, self) =>
               index ===
               self.findIndex(
-                m => m.normalized_label === metric.normalized_label
+                m =>
+                  m.normalized_label === metric.normalized_label &&
+                  (m.axis || null) === (metric.axis || null)
               )
           )
           .filter(
@@ -85,7 +89,10 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
         // Auto-select first metric if none selected
         if (uniqueMetrics.length > 0 && !selectedMetric) {
           const firstMetric = uniqueMetrics[0];
-          setSelectedMetric(firstMetric.normalized_label || `metric-0`);
+          const uniqueValue = firstMetric.axis
+            ? `${firstMetric.normalized_label}|${firstMetric.axis}`
+            : firstMetric.normalized_label;
+          setSelectedMetric(uniqueValue || `metric-0`);
         }
       } catch (err) {
         setError("Failed to load available metrics");
@@ -106,10 +113,17 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
       try {
         setLoading(true);
         setError(null);
+
+        // Extract normalized_label and axis from the selected value
+        const [normalizedLabel, axis] = selectedMetric.includes("|")
+          ? selectedMetric.split("|")
+          : [selectedMetric, undefined];
+
         const data = await FinancialDataService.getFinancialData(
           ticker,
-          selectedMetric,
-          granularity
+          normalizedLabel,
+          granularity,
+          axis
         );
         setFinancialData(data);
       } catch (err) {
@@ -206,17 +220,27 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
                             <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">
                               {statement}
                             </div>
-                            {groupedMetrics[statement].map((metric, index) => (
-                              <SelectItem
-                                key={`${metric.normalized_label}-${index}`}
-                                value={
-                                  metric.normalized_label || `metric-${index}`
-                                }
-                                className="pl-6"
-                              >
-                                {metric.normalized_label} ({metric.count})
-                              </SelectItem>
-                            ))}
+                            {groupedMetrics[statement].map((metric, index) => {
+                              const displayLabel = metric.axis
+                                ? `${metric.normalized_label} (${metric.axis})`
+                                : metric.normalized_label;
+                              const uniqueKey = metric.axis
+                                ? `${metric.normalized_label}-${metric.axis}-${index}`
+                                : `${metric.normalized_label}-${index}`;
+                              const uniqueValue = metric.axis
+                                ? `${metric.normalized_label}|${metric.axis}`
+                                : metric.normalized_label;
+
+                              return (
+                                <SelectItem
+                                  key={uniqueKey}
+                                  value={uniqueValue || `metric-${index}`}
+                                  className="pl-6"
+                                >
+                                  {displayLabel} ({metric.count})
+                                </SelectItem>
+                              );
+                            })}
                           </div>
                         ))
                     ) : (
@@ -256,9 +280,24 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
           <Card>
             <CardHeader>
               <CardTitle>
-                {availableMetrics.find(
-                  m => m.normalized_label === selectedMetric
-                )?.normalized_label || selectedMetric}
+                {(() => {
+                  // Parse the selectedMetric value to extract normalized_label and axis
+                  const [normalizedLabel, axis] = selectedMetric.includes("|")
+                    ? selectedMetric.split("|")
+                    : [selectedMetric, null];
+
+                  const metric = availableMetrics.find(
+                    m =>
+                      m.normalized_label === normalizedLabel &&
+                      (m.axis || null) === (axis || null)
+                  );
+                  if (metric) {
+                    return metric.axis
+                      ? `${metric.normalized_label} (${metric.axis})`
+                      : metric.normalized_label;
+                  }
+                  return selectedMetric;
+                })()}
               </CardTitle>
               <CardDescription>
                 {ticker} -{" "}
