@@ -39,16 +39,6 @@ export class FinancialDataService {
 
     const metrics = await response.json();
 
-    // Debug: Log the raw response
-    console.log("API Response:", metrics);
-    console.log(
-      "First 3 items structure:",
-      metrics.slice(0, 3).map((item: unknown) => ({
-        keys: Object.keys(item as Record<string, unknown>),
-        values: item,
-      }))
-    );
-
     // Filter out invalid metrics
     const filteredMetrics = metrics.filter(
       (metric: FinancialMetric) =>
@@ -56,8 +46,6 @@ export class FinancialDataService {
         metric.normalized_label &&
         metric.normalized_label.trim() !== ""
     );
-
-    console.log("Filtered metrics from service:", filteredMetrics);
 
     return filteredMetrics;
   }
@@ -94,10 +82,12 @@ export class FinancialDataService {
         // Case 1: Single item (no axis data) - normalize to series format
         const singleItem = rawData[0];
         metricData = {
-          series: [{
-            name: singleItem.normalized_label || 'Total',
-            values: singleItem.values || []
-          }]
+          series: [
+            {
+              name: singleItem.normalized_label || "Total",
+              values: singleItem.values || [],
+            },
+          ],
         };
       } else if (rawData.length > 1) {
         // Case 2: Multiple items (axis data - each item is a series)
@@ -120,10 +110,12 @@ export class FinancialDataService {
     } else {
       // Case 3: Single object - normalize to series format
       metricData = {
-        series: [{
-          name: rawData.normalized_label || 'Total',
-          values: rawData.values || []
-        }]
+        series: [
+          {
+            name: rawData.normalized_label || "Total",
+            values: rawData.values || [],
+          },
+        ],
       };
     }
 

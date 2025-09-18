@@ -14,7 +14,6 @@ export function FinancialChart({
   selectedSeries = [],
   onSeriesChange,
 }: FinancialChartProps) {
-
   // Format the value for display in tooltip
   const formatValue = (value: number) => {
     const absValue = Math.abs(value);
@@ -79,152 +78,170 @@ export function FinancialChart({
 
   const option: Record<string, unknown> = {
     color: data.series.map(s => seriesColorMap[s.name]), // Always use all series for color array
-      grid: {
-        left: "10%",
-        right: "10%",
-        top: "10%",
-        bottom: "15%",
-        containLabel: true,
-      },
-      xAxis: {
-        type: "category",
-        data: sortedDates.map(date =>
-          new Date(date).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: data.granularity === "quarterly" ? "short" : undefined,
-          })
-        ),
-        axisLine: {
-          lineStyle: {
-            color: "#64748b",
-          },
-        },
-        axisTick: {
-          show: false,
-        },
-        axisLabel: {
+    grid: {
+      left: "10%",
+      right: "10%",
+      top: "10%",
+      bottom: "15%",
+      containLabel: true,
+    },
+    xAxis: {
+      type: "category",
+      data: sortedDates.map(date =>
+        new Date(date).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: data.granularity === "quarterly" ? "short" : undefined,
+        })
+      ),
+      axisLine: {
+        lineStyle: {
           color: "#64748b",
-          fontSize: 12,
         },
       },
-      yAxis: {
-        type: "value",
-        axisLine: {
-          lineStyle: {
-            color: "#64748b",
-          },
-        },
-        axisTick: {
-          show: false,
-        },
-        axisLabel: {
+      axisTick: {
+        show: false,
+      },
+      axisLabel: {
+        color: "#64748b",
+        fontSize: 12,
+      },
+    },
+    yAxis: {
+      type: "value",
+      axisLine: {
+        lineStyle: {
           color: "#64748b",
-          fontSize: 12,
-          formatter: (value: number) => formatValue(value),
-        },
-        splitLine: {
-          lineStyle: {
-            color: "#e2e8f0",
-            type: "dashed",
-          },
         },
       },
-      tooltip: {
-        trigger: "axis",
-        backgroundColor: "rgba(255, 255, 255, 0.95)",
-        borderColor: "#e2e8f0",
-        textStyle: {
-          color: "#1e293b",
+      axisTick: {
+        show: false,
+      },
+      axisLabel: {
+        color: "#64748b",
+        fontSize: 12,
+        formatter: (value: number) => formatValue(value),
+      },
+      splitLine: {
+        lineStyle: {
+          color: "#e2e8f0",
+          type: "dashed",
         },
-        formatter: (
-          params: Array<{
-            seriesName: string;
-            value: number;
-            color: string;
-            axisValue: string;
-          }>
-        ) => {
-          const date = params[0].axisValue;
-          let total = 0;
-          let tooltipContent = `<div style="padding: 8px;">
+      },
+    },
+    tooltip: {
+      trigger: "axis",
+      backgroundColor: "rgba(255, 255, 255, 0.95)",
+      borderColor: "#e2e8f0",
+      textStyle: {
+        color: "#1e293b",
+      },
+      formatter: (
+        params: Array<{
+          seriesName: string;
+          value: number;
+          color: string;
+          axisValue: string;
+        }>
+      ) => {
+        const date = params[0].axisValue;
+        let total = 0;
+        let tooltipContent = `<div style="padding: 8px;">
             <div style="font-weight: 600; color: #1e293b; margin-bottom: 8px;">${date}</div>`;
 
-          params.forEach(param => {
-            const value = param.value || 0;
-            total += value;
-            tooltipContent += `
+        params.forEach(param => {
+          const value = param.value || 0;
+          total += value;
+          tooltipContent += `
               <div style="display: flex; align-items: center; margin-bottom: 4px;">
                 <span style="display: inline-block; width: 10px; height: 10px; background-color: ${param.color}; margin-right: 8px; border-radius: 2px;"></span>
                 <span style="color: #64748b;">${param.seriesName}: ${formatValue(value)}</span>
               </div>
             `;
-          });
+        });
 
-          tooltipContent += `
+        tooltipContent += `
             <div style="border-top: 1px solid #e2e8f0; margin-top: 8px; padding-top: 8px; font-weight: 600; color: #1e293b;">
               Total: ${formatValue(total)}
             </div>
           </div>`;
 
-          return tooltipContent;
-        },
+        return tooltipContent;
       },
-      legend: {
-        data: data.series.map(s => s.name),
-        bottom: 0,
-        textStyle: {
-          color: "#64748b",
-          fontSize: 12,
-        },
-        selected: data.series.reduce(
-          (acc, series) => {
-            acc[series.name] =
-              selectedSeries.length === 0 ||
-              selectedSeries.includes(series.name);
-            return acc;
-          },
-          {} as Record<string, boolean>
-        ),
-        // Disable legend click to prevent series from disappearing
-        selector: false,
-        selectorLabel: {
-          show: false,
-        },
+    },
+    legend: {
+      data: data.series.map(s => s.name),
+      bottom: 0,
+      textStyle: {
+        color: "#64748b",
+        fontSize: 12,
       },
-      series: allSeries.map(series => {
-        const isSelected = !hasSelection || selectedSeries.includes(series.name);
-        const seriesData = sortedDates.map(date => {
-          const point = series.data.find(d => d.date === date);
-          return {
-            value: point?.value || 0,
-            itemStyle: {
-              // Apply rounding based on display mode
-              borderRadius: isSingleSeries
-                ? [4, 4, 0, 0] // Single series: rounded top
-                : allSeries.indexOf(series) === allSeries.length - 1
-                  ? [4, 4, 0, 0]
-                  : [0, 0, 0, 0], // Stacked: only top element rounded
-            },
-          };
-        });
+      selected: data.series.reduce(
+        (acc, series) => {
+          acc[series.name] =
+            selectedSeries.length === 0 || selectedSeries.includes(series.name);
+          return acc;
+        },
+        {} as Record<string, boolean>
+      ),
+      // Disable legend click to prevent series from disappearing
+      selector: false,
+      selectorLabel: {
+        show: false,
+      },
+    },
+    series: allSeries.map(series => {
+      const isSelected = !hasSelection || selectedSeries.includes(series.name);
+      const seriesData = sortedDates.map(date => {
+        const point = series.data.find(d => d.date === date);
+        const hasValue = point && point.value !== 0;
+
+        // Determine if this series should have rounded corners
+        // For single series, always round
+        // For stacked series, round only if this is the topmost series with data at this date
+        const seriesWithDataAtDate =
+          !isSingleSeries && hasValue
+            ? allSeries
+                .map((s, index) => ({
+                  series: s,
+                  point: s.data.find(d => d.date === date),
+                  index,
+                }))
+                .filter(({ point }) => point && point.value !== 0)
+            : [];
+
+        const topSeries =
+          seriesWithDataAtDate.length > 0
+            ? seriesWithDataAtDate[seriesWithDataAtDate.length - 1].series
+            : null;
+
+        const shouldRound =
+          isSingleSeries || (hasValue && topSeries?.name === series.name);
 
         return {
-          name: series.name,
-          type: "bar",
-          stack: isSingleSeries ? undefined : "total", // No stacking for single series
-          data: seriesData,
+          value: point?.value || 0,
           itemStyle: {
-            color: seriesColorMap[series.name], // Explicitly set color for each series
-            opacity: isSelected ? 1.0 : 0.3, // Blur non-selected series
-          },
-          emphasis: {
-            itemStyle: {
-              opacity: isSelected ? 0.8 : 0.4, // Slightly less blur on hover
-            },
+            borderRadius: shouldRound ? [4, 4, 0, 0] : [0, 0, 0, 0],
           },
         };
-      }),
-    };
+      });
+
+      return {
+        name: series.name,
+        type: "bar",
+        stack: isSingleSeries ? undefined : "total", // No stacking for single series
+        data: seriesData,
+        itemStyle: {
+          color: seriesColorMap[series.name], // Explicitly set color for each series
+          opacity: isSelected ? 1.0 : 0.3, // Blur non-selected series
+        },
+        emphasis: {
+          itemStyle: {
+            opacity: isSelected ? 0.8 : 0.4, // Slightly less blur on hover
+          },
+        },
+      };
+    }),
+  };
 
   const handleLegendClick = (params: { name: string }) => {
     if (onSeriesChange && data.series) {

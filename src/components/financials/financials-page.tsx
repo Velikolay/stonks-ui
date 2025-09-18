@@ -100,16 +100,15 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
             : firstMetric.normalized_label;
           setSelectedMetric(uniqueValue || `metric-0`);
         }
-      } catch (err) {
+      } catch {
         setError("Failed to load available metrics");
-        // console.error("Error fetching metrics:", err);
       } finally {
         setLoading(false);
       }
     };
 
     fetchMetrics();
-  }, [ticker, granularity]);
+  }, [ticker, granularity, selectedMetric]);
 
   // Fetch financial data when metric or granularity changes
   useEffect(() => {
@@ -135,9 +134,8 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
 
         // Show all series by default (empty array means show all)
         setSelectedSeries([]);
-      } catch (err) {
+      } catch {
         setError("Failed to load financial data");
-        // console.error("Error fetching financial data:", err);
       } finally {
         setLoading(false);
       }
