@@ -51,10 +51,8 @@ export function FinancialChart({
   };
 
   // Always use series-based approach - data.series is required
-  const filteredSeries =
-    selectedSeries.length > 0
-      ? data.series.filter(s => selectedSeries.includes(s.name))
-      : data.series;
+  // Always show all series, but apply blur to non-selected ones
+  const allSeries = data.series;
 
   // Create consistent color mapping for all series based on original order
   const allColors = generateColors(data.series.length);
@@ -66,11 +64,12 @@ export function FinancialChart({
     {} as Record<string, string>
   );
 
-  const isSingleSeries = filteredSeries.length === 1;
+  const isSingleSeries = allSeries.length === 1;
+  const hasSelection = selectedSeries.length > 0;
 
   // Get all unique dates from all series
   const allDates = new Set<string>();
-  filteredSeries.forEach(series => {
+  allSeries.forEach(series => {
     series.data.forEach(point => allDates.add(point.date));
   });
 
@@ -192,7 +191,8 @@ export function FinancialChart({
           show: false,
         },
       },
-      series: filteredSeries.map(series => {
+      series: allSeries.map(series => {
+        const isSelected = !hasSelection || selectedSeries.includes(series.name);
         const seriesData = sortedDates.map(date => {
           const point = series.data.find(d => d.date === date);
           return {
@@ -201,7 +201,7 @@ export function FinancialChart({
               // Apply rounding based on display mode
               borderRadius: isSingleSeries
                 ? [4, 4, 0, 0] // Single series: rounded top
-                : filteredSeries.indexOf(series) === filteredSeries.length - 1
+                : allSeries.indexOf(series) === allSeries.length - 1
                   ? [4, 4, 0, 0]
                   : [0, 0, 0, 0], // Stacked: only top element rounded
             },
@@ -215,10 +215,11 @@ export function FinancialChart({
           data: seriesData,
           itemStyle: {
             color: seriesColorMap[series.name], // Explicitly set color for each series
+            opacity: isSelected ? 1.0 : 0.3, // Blur non-selected series
           },
           emphasis: {
             itemStyle: {
-              opacity: 0.8,
+              opacity: isSelected ? 0.8 : 0.4, // Slightly less blur on hover
             },
           },
         };
@@ -231,15 +232,14 @@ export function FinancialChart({
       let newSelection: string[];
 
       if (selectedSeries.includes(seriesName)) {
-        // If clicking on a selected series, remove it
-        newSelection = selectedSeries.filter(name => name !== seriesName);
+        // If clicking on the currently selected series, show all (clear selection)
+        newSelection = [];
       } else {
-        // If clicking on an unselected series, add it
-        newSelection = [...selectedSeries, seriesName];
+        // If clicking on a different series, select only that one (blur the rest)
+        newSelection = [seriesName];
       }
 
-      // If no series selected, show all (empty array means show all)
-      onSeriesChange(newSelection.length === 0 ? [] : newSelection);
+      onSeriesChange(newSelection);
     }
   };
 
