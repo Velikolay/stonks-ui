@@ -14,16 +14,6 @@ export function FinancialChart({
   selectedSeries = [],
   onSeriesChange,
 }: FinancialChartProps) {
-  // Format the data for the chart
-  const chartData = data.data.map(point => ({
-    date: point.date,
-    value: point.value,
-    // Format the date for display
-    formattedDate: new Date(point.date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: data.granularity === "quarterly" ? "short" : undefined,
-    }),
-  }));
 
   // Format the value for display in tooltip
   const formatValue = (value: number) => {
@@ -60,39 +50,36 @@ export function FinancialChart({
     return colors.slice(0, count);
   };
 
-  let option: Record<string, unknown>;
+  // Always use series-based approach - data.series is required
+  const filteredSeries =
+    selectedSeries.length > 0
+      ? data.series.filter(s => selectedSeries.includes(s.name))
+      : data.series;
 
-  if (data.series && data.series.length > 0) {
-    // Display series based on selection - show all if none selected
-    const filteredSeries =
-      selectedSeries.length > 0
-        ? data.series.filter(s => selectedSeries.includes(s.name))
-        : data.series;
+  // Create consistent color mapping for all series based on original order
+  const allColors = generateColors(data.series.length);
+  const seriesColorMap = data.series.reduce(
+    (acc, series, index) => {
+      acc[series.name] = allColors[index];
+      return acc;
+    },
+    {} as Record<string, string>
+  );
 
-    // Create consistent color mapping for all series based on original order
-    const allColors = generateColors(data.series.length);
-    const seriesColorMap = data.series.reduce(
-      (acc, series, index) => {
-        acc[series.name] = allColors[index];
-        return acc;
-      },
-      {} as Record<string, string>
-    );
+  const isSingleSeries = filteredSeries.length === 1;
 
-    const isSingleSeries = filteredSeries.length === 1;
+  // Get all unique dates from all series
+  const allDates = new Set<string>();
+  filteredSeries.forEach(series => {
+    series.data.forEach(point => allDates.add(point.date));
+  });
 
-    // Get all unique dates from all series
-    const allDates = new Set<string>();
-    filteredSeries.forEach(series => {
-      series.data.forEach(point => allDates.add(point.date));
-    });
+  const sortedDates = Array.from(allDates).sort(
+    (a, b) => new Date(a).getTime() - new Date(b).getTime()
+  );
 
-    const sortedDates = Array.from(allDates).sort(
-      (a, b) => new Date(a).getTime() - new Date(b).getTime()
-    );
-
-    option = {
-      color: data.series.map(s => seriesColorMap[s.name]), // Always use all series for color array
+  const option: Record<string, unknown> = {
+    color: data.series.map(s => seriesColorMap[s.name]), // Always use all series for color array
       grid: {
         left: "10%",
         right: "10%",
@@ -237,94 +224,6 @@ export function FinancialChart({
         };
       }),
     };
-  } else {
-    // Single series bar chart
-    option = {
-      grid: {
-        left: "10%",
-        right: "10%",
-        top: "10%",
-        bottom: "15%",
-        containLabel: true,
-      },
-      xAxis: {
-        type: "category",
-        data: chartData.map(item => item.formattedDate),
-        axisLine: {
-          lineStyle: {
-            color: "#64748b",
-          },
-        },
-        axisTick: {
-          show: false,
-        },
-        axisLabel: {
-          color: "#64748b",
-          fontSize: 12,
-        },
-      },
-      yAxis: {
-        type: "value",
-        axisLine: {
-          lineStyle: {
-            color: "#64748b",
-          },
-        },
-        axisTick: {
-          show: false,
-        },
-        axisLabel: {
-          color: "#64748b",
-          fontSize: 12,
-          formatter: (value: number) => formatValue(value),
-        },
-        splitLine: {
-          lineStyle: {
-            color: "#e2e8f0",
-            type: "dashed",
-          },
-        },
-      },
-      tooltip: {
-        trigger: "axis",
-        backgroundColor: "rgba(255, 255, 255, 0.95)",
-        borderColor: "#e2e8f0",
-        textStyle: {
-          color: "#1e293b",
-        },
-        formatter: (params: Array<{ name: string; value: number }>) => {
-          const data = params[0];
-          return `
-            <div style="padding: 8px;">
-              <div style="font-weight: 600; color: #1e293b; margin-bottom: 4px;">
-                ${data.name}
-              </div>
-              <div style="color: #64748b;">
-                ${formatValue(data.value)}
-              </div>
-            </div>
-          `;
-        },
-      },
-      series: [
-        {
-          type: "bar",
-          data: chartData.map(item => ({
-            value: item.value,
-            itemStyle: {
-              color: item.value >= 0 ? "#3b82f6" : "#ef4444",
-              borderRadius: item.value >= 0 ? [4, 4, 0, 0] : [0, 0, 4, 4],
-            },
-          })),
-          emphasis: {
-            itemStyle: {
-              opacity: 0.8,
-            },
-          },
-        },
-      ],
-    };
-  }
 
   const handleLegendClick = (params: { name: string }) => {
     if (onSeriesChange && data.series) {

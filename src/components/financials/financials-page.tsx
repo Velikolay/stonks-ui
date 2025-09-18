@@ -40,8 +40,7 @@ interface FinancialData {
   ticker: string;
   metric: string;
   granularity: "yearly" | "quarterly";
-  data: FinancialDataPoint[];
-  series?: FinancialDataSeries[];
+  series: FinancialDataSeries[];
 }
 
 interface FinancialsPageProps {

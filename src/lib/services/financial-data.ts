@@ -21,8 +21,7 @@ export interface FinancialData {
   ticker: string;
   metric: string;
   granularity: "yearly" | "quarterly";
-  data: FinancialDataPoint[];
-  series?: FinancialDataSeries[]; // For axis data with multiple series
+  series: FinancialDataSeries[]; // Always use series-based approach
 }
 
 export class FinancialDataService {
@@ -92,11 +91,16 @@ export class FinancialDataService {
     let metricData;
     if (Array.isArray(rawData)) {
       if (rawData.length === 1) {
-        // Case 1: Single item (no axis data)
-        metricData = rawData[0];
+        // Case 1: Single item (no axis data) - normalize to series format
+        const singleItem = rawData[0];
+        metricData = {
+          series: [{
+            name: singleItem.normalized_label || 'Total',
+            values: singleItem.values || []
+          }]
+        };
       } else if (rawData.length > 1) {
         // Case 2: Multiple items (axis data - each item is a series)
-        // Group by axis member and create series
         const series = rawData.map(
           (item: {
             member: string;
@@ -108,23 +112,27 @@ export class FinancialDataService {
         );
 
         metricData = {
-          values: [], // Will be calculated from series
           series: series,
         };
       } else {
         throw new Error("Empty array received from API");
       }
     } else {
-      // Case 3: Single object
-      metricData = rawData;
+      // Case 3: Single object - normalize to series format
+      metricData = {
+        series: [{
+          name: rawData.normalized_label || 'Total',
+          values: rawData.values || []
+        }]
+      };
     }
 
     if (!metricData) {
       throw new Error("Invalid data structure received from API");
     }
 
-    // For axis data with series, we might not have values array
-    if (!metricData.values && !metricData.series) {
+    // Validate that we have series data
+    if (!metricData.series) {
       throw new Error("Invalid data structure received from API");
     }
 
@@ -158,57 +166,46 @@ export class FinancialDataService {
         }
       );
 
-      // Create combined data for the main data array (sum of all series)
-      const allDates = new Set<string>();
-      series.forEach(s => s.data.forEach(d => allDates.add(d.date)));
-
-      const combinedData: FinancialDataPoint[] = Array.from(allDates).map(
-        date => {
-          const totalValue = series.reduce((sum, s) => {
-            const point = s.data.find(d => d.date === date);
-            return sum + (point?.value || 0);
-          }, 0);
-          return { date, value: totalValue };
-        }
-      );
-
-      combinedData.sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
-
       return {
         ticker,
         metric: normalizedLabel,
         granularity,
-        data: combinedData,
         series,
       };
     } else {
-      // Handle single series data (no axis)
-      if (!metricData.values) {
-        throw new Error("No values data available for single series");
-      }
+      // Handle single series data (no axis) - convert to series format
+      const series: FinancialDataSeries[] = metricData.series.map(
+        (seriesItem: {
+          name: string;
+          values: Array<{ period_end: string; value: string | number }>;
+        }) => {
+          const seriesData: FinancialDataPoint[] = (
+            seriesItem.values || []
+          ).map((item: { period_end: string; value: string | number }) => ({
+            date: item.period_end,
+            value:
+              typeof item.value === "number"
+                ? item.value
+                : parseFloat(item.value) || 0,
+          }));
 
-      const data: FinancialDataPoint[] = metricData.values.map(
-        (item: { period_end: string; value: string | number }) => ({
-          date: item.period_end,
-          value:
-            typeof item.value === "number"
-              ? item.value
-              : parseFloat(item.value) || 0,
-        })
-      );
+          // Sort by date (oldest first)
+          seriesData.sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+          );
 
-      // Sort by date (oldest first)
-      data.sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+          return {
+            name: seriesItem.name,
+            data: seriesData,
+          };
+        }
       );
 
       return {
         ticker,
         metric: normalizedLabel,
         granularity,
-        data,
+        series,
       };
     }
   }
