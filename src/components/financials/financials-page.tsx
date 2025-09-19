@@ -59,6 +59,7 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
     null
   );
   const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
+  const [showGrowthLine, setShowGrowthLine] = useState<boolean>(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -317,6 +318,8 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
                 data={financialData}
                 selectedSeries={selectedSeries}
                 onSeriesChange={setSelectedSeries}
+                showGrowthLine={showGrowthLine}
+                onGrowthLineToggle={setShowGrowthLine}
               />
             </CardContent>
           </Card>
