@@ -8,6 +8,7 @@ import {
 import { FinancialTable } from "./financial-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface StatementsPageProps {
   ticker: string;
@@ -95,35 +96,32 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-gray-200">
+        <Tabs value={activeTab} onValueChange={(value: string) => setActiveTab(value as StatementType)}>
+          <TabsList className="grid w-full grid-cols-3">
+            {statements.map(statement => (
+              <TabsTrigger key={statement} value={statement}>
+                {statement}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          
           {statements.map(statement => (
-            <button
-              key={statement}
-              onClick={() => setActiveTab(statement)}
-              className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
-                activeTab === statement
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              {statement}
-            </button>
+            <TabsContent key={statement} value={statement}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{statement}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FinancialTable
+                    data={statementData[statement]}
+                    loading={loading[statement]}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
           ))}
-        </div>
+        </Tabs>
       </div>
-
-      {/* Tab Content */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{activeTab}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FinancialTable
-            data={statementData[activeTab]}
-            loading={loading[activeTab]}
-          />
-        </CardContent>
-      </Card>
     </div>
   );
 }
