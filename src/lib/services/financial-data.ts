@@ -223,6 +223,7 @@ export class FinancialDataService {
     url.searchParams.set("ticker", ticker);
     url.searchParams.set("granularity", granularity);
     url.searchParams.set("statement", statement);
+    url.searchParams.set("short", "true");
 
     const response = await fetch(url.toString());
 

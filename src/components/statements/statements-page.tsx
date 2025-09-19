@@ -38,11 +38,10 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     "Cash Flow Statement": false,
   });
 
-  const statements: StatementType[] = useMemo(() => [
-    "Income Statement",
-    "Balance Sheet",
-    "Cash Flow Statement",
-  ], []);
+  const statements: StatementType[] = useMemo(
+    () => ["Income Statement", "Balance Sheet", "Cash Flow Statement"],
+    []
+  );
 
   const fetchStatementData = useCallback(
     async (statement: StatementType) => {
@@ -96,7 +95,12 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
         </div>
 
         {/* Tab Navigation */}
-        <Tabs value={activeTab} onValueChange={(value: string) => setActiveTab(value as StatementType)}>
+        <Tabs
+          value={activeTab}
+          onValueChange={(value: string) =>
+            setActiveTab(value as StatementType)
+          }
+        >
           <TabsList className="grid w-full grid-cols-3">
             {statements.map(statement => (
               <TabsTrigger key={statement} value={statement}>
@@ -104,7 +108,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
               </TabsTrigger>
             ))}
           </TabsList>
-          
+
           {statements.map(statement => (
             <TabsContent key={statement} value={statement}>
               <Card>
