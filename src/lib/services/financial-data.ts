@@ -24,6 +24,18 @@ export interface FinancialData {
   series: FinancialDataSeries[]; // Always use series-based approach
 }
 
+export interface StatementData {
+  ticker: string;
+  statement: string;
+  granularity: "yearly" | "quarterly";
+  metrics: Array<{
+    normalized_label: string;
+    axis?: string;
+    abstracts?: string[];
+    data: FinancialDataPoint[];
+  }>;
+}
+
 export class FinancialDataService {
   static async getAvailableMetrics(
     ticker: string,
@@ -200,5 +212,67 @@ export class FinancialDataService {
         series,
       };
     }
+  }
+
+  static async getStatementData(
+    ticker: string,
+    statement: string,
+    granularity: "yearly" | "quarterly"
+  ): Promise<StatementData> {
+    const url = new URL(`${API_BASE_URL}/financials/`);
+    url.searchParams.set("ticker", ticker);
+    url.searchParams.set("granularity", granularity);
+    url.searchParams.set("statement", statement);
+
+    const response = await fetch(url.toString());
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch statement data: ${response.statusText}`);
+    }
+
+    const rawData = await response.json();
+
+    // Transform the API response to our expected format
+    // The API returns an array where each item represents a different metric
+    // Each item has: ticker, normalized_label, statement, axis, member, values
+
+    const metrics = rawData.map(
+      (item: {
+        normalized_label: string;
+        axis?: string;
+        member?: string;
+        abstracts?: string[];
+        values?: Array<{ period_end: string; value: string | number }>;
+      }) => {
+        const data: FinancialDataPoint[] = (item.values || []).map(
+          (valueItem: { period_end: string; value: string | number }) => ({
+            date: valueItem.period_end,
+            value:
+              typeof valueItem.value === "number"
+                ? valueItem.value
+                : parseFloat(valueItem.value) || 0,
+          })
+        );
+
+        // Sort by date (oldest first)
+        data.sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+
+        return {
+          normalized_label: item.normalized_label,
+          axis: item.axis,
+          abstracts: item.abstracts,
+          data,
+        };
+      }
+    );
+
+    return {
+      ticker,
+      statement,
+      granularity,
+      metrics,
+    };
   }
 }
