@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { StatementData } from "@/lib/services/financial-data";
+import React, { useState } from "react";
+import { StatementData, FinancialDataService } from "@/lib/services/financial-data";
 import {
   Table,
   TableBody,
@@ -10,6 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { MiniTrendChart } from "./mini-trend-chart";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FinancialChart } from "../financials/financial-chart";
 
 interface FinancialTableProps {
   data: StatementData | null;
@@ -17,6 +20,64 @@ interface FinancialTableProps {
 }
 
 export function FinancialTable({ data, loading }: FinancialTableProps) {
+  const [selectedMetric, setSelectedMetric] = useState<{
+    metric: string;
+    axis?: string;
+    ticker: string;
+    granularity: "yearly" | "quarterly";
+  } | null>(null);
+  const [chartData, setChartData] = useState<{
+    ticker: string;
+    metric: string;
+    granularity: "yearly" | "quarterly";
+    series: Array<{
+      name: string;
+      data: Array<{
+        date: string;
+        value: number;
+      }>;
+    }>;
+  } | null>(null);
+  const [chartLoading, setChartLoading] = useState(false);
+
+  const handleChartClick = async (metric: {
+    normalized_label: string;
+    axis?: string;
+    data: Array<{
+      date: string;
+      value: number;
+    }>;
+  }) => {
+    if (!data) return;
+    
+    setSelectedMetric({
+      metric: metric.normalized_label,
+      axis: metric.axis,
+      ticker: data.ticker,
+      granularity: data.granularity,
+    });
+    
+    setChartLoading(true);
+    try {
+      const financialData = await FinancialDataService.getFinancialData(
+        data.ticker,
+        metric.normalized_label,
+        data.granularity,
+        metric.axis
+      );
+      setChartData(financialData);
+    } catch {
+      // Handle error silently or show user-friendly message
+    } finally {
+      setChartLoading(false);
+    }
+  };
+
+  const handleCloseDialog = () => {
+    setSelectedMetric(null);
+    setChartData(null);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -113,65 +174,99 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
   const hierarchicalStructure = createHierarchicalStructure();
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[300px]">Metric</TableHead>
-          {sortedDates.map(date => (
-            <TableHead key={date} className="text-center min-w-[100px]">
-              {formatDate(date)}
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {hierarchicalStructure.map((item, index) => {
-          if (item.type === "header") {
-            return (
-              <TableRow key={`header-${index}`} className="bg-muted/50">
-                <TableCell
-                  className="font-semibold text-base py-3"
-                  style={{ paddingLeft: `${item.level * 24 + 16}px` }}
-                >
-                  {item.text}
-                </TableCell>
-                {sortedDates.map(date => (
-                  <TableCell key={date} className="text-right py-3">
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[300px]">Metric</TableHead>
+            <TableHead className="w-[80px] text-center">Trend</TableHead>
+            {sortedDates.map(date => (
+              <TableHead key={date} className="text-center min-w-[100px]">
+                {formatDate(date)}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {hierarchicalStructure.map((item, index) => {
+            if (item.type === "header") {
+              return (
+                <TableRow key={`header-${index}`} className="bg-muted/50">
+                  <TableCell
+                    className="font-semibold text-base py-3"
+                    style={{ paddingLeft: `${item.level * 24 + 16}px` }}
+                  >
+                    {item.text}
+                  </TableCell>
+                  <TableCell className="text-center py-3">
                     —
                   </TableCell>
-                ))}
-              </TableRow>
-            );
-          } else {
-            return (
-              <TableRow key={`metric-${index}`}>
-                <TableCell
-                  className="font-medium"
-                  style={{ paddingLeft: `${item.level * 24 + 16}px` }}
-                >
-                  {item.text}
-                  {item.metric?.axis && (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      ({item.metric.axis})
-                    </span>
-                  )}
-                </TableCell>
-                {sortedDates.map(date => {
-                  const dataPoint = item.metric?.data.find(
-                    d => d.date === date
-                  );
-                  const value = dataPoint ? dataPoint.value : 0;
-                  return (
-                    <TableCell key={date} className="text-right">
-                      {formatValue(value)}
+                  {sortedDates.map(date => (
+                    <TableCell key={date} className="text-right py-3">
+                      —
                     </TableCell>
-                  );
-                })}
-              </TableRow>
-            );
-          }
-        })}
-      </TableBody>
-    </Table>
+                  ))}
+                </TableRow>
+              );
+            } else {
+              return (
+                <TableRow key={`metric-${index}`}>
+                  <TableCell
+                    className="font-medium"
+                    style={{ paddingLeft: `${item.level * 24 + 16}px` }}
+                  >
+                    {item.text}
+                    {item.metric?.axis && (
+                      <span className="text-sm text-muted-foreground ml-2">
+                        ({item.metric.axis})
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {item.metric && (
+                      <MiniTrendChart
+                        data={item.metric.data}
+                        onClick={() => item.metric && handleChartClick(item.metric)}
+                      />
+                    )}
+                  </TableCell>
+                  {sortedDates.map(date => {
+                    const dataPoint = item.metric?.data.find(
+                      d => d.date === date
+                    );
+                    const value = dataPoint ? dataPoint.value : 0;
+                    return (
+                      <TableCell key={date} className="text-right">
+                        {formatValue(value)}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              );
+            }
+          })}
+        </TableBody>
+      </Table>
+
+      <Dialog open={!!selectedMetric} onOpenChange={handleCloseDialog}>
+        <DialogContent className="!max-w-[95vw] w-full">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedMetric?.metric}
+              {selectedMetric?.axis && ` (${selectedMetric.axis})`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="h-[600px]">
+            {chartLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-lg">Loading chart...</div>
+              </div>
+            ) : chartData ? (
+              <FinancialChart data={chartData} />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
