@@ -372,10 +372,18 @@ export function FinancialChart({
           const shouldRound =
             isSingleSeries || (hasValue && topSeries?.name === series.name);
 
+          // For negative values, round the bottom; for positive values, round the top
+          const isNegative = (point?.value || 0) < 0;
+          const borderRadius = shouldRound
+            ? isNegative
+              ? [0, 0, 4, 4] // Round bottom for negative values
+              : [4, 4, 0, 0] // Round top for positive values
+            : [0, 0, 0, 0];
+
           return {
             value: point?.value || 0,
             itemStyle: {
-              borderRadius: shouldRound ? [4, 4, 0, 0] : [0, 0, 0, 0],
+              borderRadius,
             },
           };
         });
