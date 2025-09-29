@@ -47,6 +47,8 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
     }>;
   } | null>(null);
   const [chartLoading, setChartLoading] = useState(false);
+  const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
+  const [showGrowthLine, setShowGrowthLine] = useState<boolean>(false);
 
   const handleChartClick = async (metric: {
     normalized_label: string;
@@ -270,7 +272,13 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
                 <div className="text-lg">Loading chart...</div>
               </div>
             ) : chartData ? (
-              <FinancialChart data={chartData} />
+              <FinancialChart
+                data={chartData}
+                selectedSeries={selectedSeries}
+                onSeriesChange={setSelectedSeries}
+                showGrowthLine={showGrowthLine}
+                onGrowthLineToggle={setShowGrowthLine}
+              />
             ) : null}
           </div>
         </DialogContent>

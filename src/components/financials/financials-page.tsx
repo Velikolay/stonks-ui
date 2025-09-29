@@ -59,7 +59,7 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
     null
   );
   const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
-  const [showGrowthLine, setShowGrowthLine] = useState<boolean>(true);
+  const [showGrowthLine, setShowGrowthLine] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

@@ -15,7 +15,7 @@ export function FinancialChart({
   data,
   selectedSeries = [],
   onSeriesChange,
-  showGrowthLine = true,
+  showGrowthLine = false,
   onGrowthLineToggle,
 }: FinancialChartProps) {
   // Format the value for display in tooltip
@@ -80,7 +80,7 @@ export function FinancialChart({
     (a, b) => new Date(a).getTime() - new Date(b).getTime()
   );
 
-  // Calculate growth rates for the currently visible series
+  // Calculate YoY Growths for the currently visible series
   const calculateGrowthRates = () => {
     const growthData: Array<{ date: string; growth: number | null }> = [];
 
@@ -285,7 +285,7 @@ export function FinancialChart({
           total += value;
 
           // Skip growth line in the main series display
-          if (param.seriesName !== "Growth Rate") {
+          if (param.seriesName !== "YoY Growth") {
             tooltipContent += `
                 <div style="display: flex; align-items: center; margin-bottom: 4px;">
                   <span style="display: inline-block; width: 10px; height: 10px; background-color: ${param.color}; margin-right: 8px; border-radius: 2px;"></span>
@@ -318,7 +318,7 @@ export function FinancialChart({
       },
     },
     legend: {
-      data: [...data.series.map(s => s.name), "Growth Rate"],
+      data: [...data.series.map(s => s.name), "YoY Growth"],
       bottom: 0,
       textStyle: {
         color: "#64748b",
@@ -334,7 +334,7 @@ export function FinancialChart({
           },
           {} as Record<string, boolean>
         ),
-        "Growth Rate": showGrowthLine, // Toggleable growth line
+        "YoY Growth": showGrowthLine, // Toggleable growth line
       },
       // Disable legend click to prevent series from disappearing
       selector: false,
@@ -398,7 +398,7 @@ export function FinancialChart({
       }),
       // Add growth line series (always present, but conditionally visible)
       {
-        name: "Growth Rate",
+        name: "YoY Growth",
         type: "line",
         yAxisIndex: 1, // Use the right y-axis for growth percentage
         data: growthData.map(g => ({
@@ -447,7 +447,7 @@ export function FinancialChart({
     const seriesName = params.name;
 
     // Handle growth line toggle
-    if (seriesName === "Growth Rate" && onGrowthLineToggle) {
+    if (seriesName === "YoY Growth" && onGrowthLineToggle) {
       onGrowthLineToggle(!showGrowthLine);
       return;
     }
