@@ -10,10 +10,14 @@ interface MiniTrendChartProps {
   className?: string;
 }
 
-export function MiniTrendChart({ data, onClick, className }: MiniTrendChartProps) {
+export function MiniTrendChart({
+  data,
+  onClick,
+  className,
+}: MiniTrendChartProps) {
   if (!data || data.length === 0) {
     return (
-      <div 
+      <div
         className={`w-16 h-8 bg-muted rounded flex items-center justify-center cursor-pointer ${className || ""}`}
         onClick={onClick}
       >
@@ -23,20 +27,24 @@ export function MiniTrendChart({ data, onClick, className }: MiniTrendChartProps
   }
 
   // Sort data by date
-  const sortedData = [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  
+  const sortedData = [...data].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
   // Extract dates and values
   const dates = sortedData.map(point => point.date);
   const values = sortedData.map(point => point.value);
-  
+
   // Determine if trend is positive or negative
   const firstValue = values[0];
   const lastValue = values[values.length - 1];
   const isPositive = lastValue >= firstValue;
-  
+
   // Calculate color based on trend
   const lineColor = isPositive ? "#22c55e" : "#ef4444"; // green or red
-  const areaColor = isPositive ? "rgba(34, 197, 94, 0.1)" : "rgba(239, 68, 68, 0.1)";
+  const areaColor = isPositive
+    ? "rgba(34, 197, 94, 0.1)"
+    : "rgba(239, 68, 68, 0.1)";
 
   const option = {
     grid: {
@@ -90,12 +98,12 @@ export function MiniTrendChart({ data, onClick, className }: MiniTrendChartProps
   };
 
   return (
-    <div 
+    <div
       className={`w-16 h-8 cursor-pointer hover:opacity-80 transition-opacity ${className || ""}`}
       onClick={onClick}
     >
-      <ReactECharts 
-        option={option} 
+      <ReactECharts
+        option={option}
         style={{ width: "100%", height: "100%" }}
         opts={{ renderer: "canvas" }}
       />

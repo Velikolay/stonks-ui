@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { StatementData, FinancialDataService } from "@/lib/services/financial-data";
+import {
+  StatementData,
+  FinancialDataService,
+} from "@/lib/services/financial-data";
 import {
   Table,
   TableBody,
@@ -11,7 +14,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MiniTrendChart } from "./mini-trend-chart";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { FinancialChart } from "../financials/financial-chart";
 
 interface FinancialTableProps {
@@ -49,14 +57,14 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
     }>;
   }) => {
     if (!data) return;
-    
+
     setSelectedMetric({
       metric: metric.normalized_label,
       axis: metric.axis,
       ticker: data.ticker,
       granularity: data.granularity,
     });
-    
+
     setChartLoading(true);
     try {
       const financialData = await FinancialDataService.getFinancialData(
@@ -198,9 +206,7 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
                   >
                     {item.text}
                   </TableCell>
-                  <TableCell className="text-center py-3">
-                    —
-                  </TableCell>
+                  <TableCell className="text-center py-3">—</TableCell>
                   {sortedDates.map(date => (
                     <TableCell key={date} className="text-right py-3">
                       —
@@ -226,7 +232,9 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
                     {item.metric && (
                       <MiniTrendChart
                         data={item.metric.data}
-                        onClick={() => item.metric && handleChartClick(item.metric)}
+                        onClick={() =>
+                          item.metric && handleChartClick(item.metric)
+                        }
                       />
                     )}
                   </TableCell>

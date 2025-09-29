@@ -10,6 +10,7 @@ export interface FinancialMetric {
 export interface FinancialDataPoint {
   date: string;
   value: number;
+  fiscal_quarter?: number;
 }
 
 export interface FinancialDataSeries {
@@ -106,7 +107,11 @@ export class FinancialDataService {
         const series = rawData.map(
           (item: {
             member: string;
-            values?: Array<{ period_end: string; value: string | number }>;
+            values?: Array<{
+              period_end: string;
+              value: string | number;
+              fiscal_quarter?: number;
+            }>;
           }) => ({
             name: item.member, // Use member as the series name
             values: item.values || [],
@@ -146,17 +151,28 @@ export class FinancialDataService {
       const series: FinancialDataSeries[] = metricData.series.map(
         (seriesItem: {
           name: string;
-          values: Array<{ period_end: string; value: string | number }>;
+          values: Array<{
+            period_end: string;
+            value: string | number;
+            fiscal_quarter?: number;
+          }>;
         }) => {
           const seriesData: FinancialDataPoint[] = (
             seriesItem.values || []
-          ).map((item: { period_end: string; value: string | number }) => ({
-            date: item.period_end,
-            value:
-              typeof item.value === "number"
-                ? item.value
-                : parseFloat(item.value) || 0,
-          }));
+          ).map(
+            (item: {
+              period_end: string;
+              value: string | number;
+              fiscal_quarter?: number;
+            }) => ({
+              date: item.period_end,
+              value:
+                typeof item.value === "number"
+                  ? item.value
+                  : parseFloat(item.value) || 0,
+              fiscal_quarter: item.fiscal_quarter,
+            })
+          );
 
           // Sort by date (oldest first)
           seriesData.sort(
@@ -181,17 +197,28 @@ export class FinancialDataService {
       const series: FinancialDataSeries[] = metricData.series.map(
         (seriesItem: {
           name: string;
-          values: Array<{ period_end: string; value: string | number }>;
+          values: Array<{
+            period_end: string;
+            value: string | number;
+            fiscal_quarter?: number;
+          }>;
         }) => {
           const seriesData: FinancialDataPoint[] = (
             seriesItem.values || []
-          ).map((item: { period_end: string; value: string | number }) => ({
-            date: item.period_end,
-            value:
-              typeof item.value === "number"
-                ? item.value
-                : parseFloat(item.value) || 0,
-          }));
+          ).map(
+            (item: {
+              period_end: string;
+              value: string | number;
+              fiscal_quarter?: number;
+            }) => ({
+              date: item.period_end,
+              value:
+                typeof item.value === "number"
+                  ? item.value
+                  : parseFloat(item.value) || 0,
+              fiscal_quarter: item.fiscal_quarter,
+            })
+          );
 
           // Sort by date (oldest first)
           seriesData.sort(
@@ -243,15 +270,24 @@ export class FinancialDataService {
         axis?: string;
         member?: string;
         abstracts?: string[];
-        values?: Array<{ period_end: string; value: string | number }>;
+        values?: Array<{
+          period_end: string;
+          value: string | number;
+          fiscal_quarter?: number;
+        }>;
       }) => {
         const data: FinancialDataPoint[] = (item.values || []).map(
-          (valueItem: { period_end: string; value: string | number }) => ({
+          (valueItem: {
+            period_end: string;
+            value: string | number;
+            fiscal_quarter?: number;
+          }) => ({
             date: valueItem.period_end,
             value:
               typeof valueItem.value === "number"
                 ? valueItem.value
                 : parseFloat(valueItem.value) || 0,
+            fiscal_quarter: valueItem.fiscal_quarter,
           })
         );
 

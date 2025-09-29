@@ -122,22 +122,32 @@ export function FinancialChart({
           });
         }
       } else {
-        // For quarterly, compare with same quarter previous year (YoY)
+        // For quarterly, compare with same fiscal quarter previous year (YoY)
+        const currentPoint = visibleSeries[0]?.data.find(
+          d => d.date === currentDate
+        );
+        const currentFiscalQuarter = currentPoint?.fiscal_quarter;
         const currentDateObj = new Date(currentDate);
         const currentYear = currentDateObj.getFullYear();
-        const currentMonth = currentDateObj.getMonth();
 
-        // Find the same quarter in the previous year
+        // Find the same fiscal quarter in the previous year
         for (let j = 0; j < i; j++) {
           const compareDate = sortedDates[j];
           const compareDateObj = new Date(compareDate);
           const compareYear = compareDateObj.getFullYear();
-          const compareMonth = compareDateObj.getMonth();
 
-          // Check if it's the same quarter in the previous year
+          // Get fiscal quarter for comparison
+          const comparePoint = visibleSeries[0]?.data.find(
+            d => d.date === compareDate
+          );
+          const compareFiscalQuarter = comparePoint?.fiscal_quarter;
+
+          // Check if it's the same fiscal quarter in the previous year
           if (
             compareYear === currentYear - 1 &&
-            Math.floor(compareMonth / 3) === Math.floor(currentMonth / 3)
+            compareFiscalQuarter === currentFiscalQuarter &&
+            currentFiscalQuarter !== undefined &&
+            compareFiscalQuarter !== undefined
           ) {
             previousDate = compareDate;
             visibleSeries.forEach(series => {
