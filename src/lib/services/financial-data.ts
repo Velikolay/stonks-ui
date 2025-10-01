@@ -67,7 +67,8 @@ export class FinancialDataService {
     ticker: string,
     normalizedLabel: string,
     granularity: "yearly" | "quarterly",
-    axis?: string
+    axis?: string,
+    statement?: string
   ): Promise<FinancialData> {
     const url = new URL(`${API_BASE_URL}/financials/`);
     url.searchParams.set("ticker", ticker);
@@ -89,156 +90,108 @@ export class FinancialDataService {
     // The API returns an array where each item represents a different axis member
     // Each item has: ticker, normalized_label, statement, axis, member, values
 
-    let metricData;
+    let seriesToProcess;
     if (Array.isArray(rawData)) {
-      if (rawData.length === 1) {
-        // Case 1: Single item (no axis data) - normalize to series format
-        const singleItem = rawData[0];
-        metricData = {
-          series: [
-            {
-              name: singleItem.normalized_label || "Total",
-              values: singleItem.values || [],
-            },
-          ],
-        };
-      } else if (rawData.length > 1) {
-        // Case 2: Multiple items (axis data - each item is a series)
-        const series = rawData.map(
+      if (rawData.length === 0) {
+        throw new Error("Empty array received from API");
+      }
+
+      if (rawData.length > 1 && statement) {
+        // Filter by statement when multiple series are available
+        const sameStatementSeries = rawData.filter(
           (item: {
-            member: string;
+            statement?: string;
+            member?: string;
+            normalized_label?: string;
             values?: Array<{
               period_end: string;
               value: string | number;
               fiscal_quarter?: number;
             }>;
+          }) => item.statement === statement
+        );
+
+        if (sameStatementSeries.length > 0) {
+          // Use series from the same statement
+          seriesToProcess = axis
+            ? sameStatementSeries
+            : sameStatementSeries.slice(0, 1);
+        } else {
+          // Fallback to original logic if no matching statement
+          const seriesCount = axis ? rawData.length : 1;
+          seriesToProcess = rawData.slice(0, seriesCount);
+        }
+      } else {
+        // Original logic for single series or when no statement filter
+        const seriesCount = axis ? rawData.length : 1;
+        seriesToProcess = rawData.slice(0, seriesCount);
+      }
+    } else {
+      // Single object - normalize to array format
+      seriesToProcess = [rawData];
+    }
+
+    // Transform to series format
+    const metricData = {
+      series: seriesToProcess.map(
+        (item: {
+          member?: string;
+          normalized_label?: string;
+          values?: Array<{
+            period_end: string;
+            value: string | number;
+            fiscal_quarter?: number;
+          }>;
+        }) => ({
+          name: item.member || item.normalized_label || "Total",
+          values: item.values || [],
+        })
+      ),
+    };
+
+    // Process series data
+    const series: FinancialDataSeries[] = metricData.series.map(
+      (seriesItem: {
+        name: string;
+        values: Array<{
+          period_end: string;
+          value: string | number;
+          fiscal_quarter?: number;
+        }>;
+      }) => {
+        const seriesData: FinancialDataPoint[] = (seriesItem.values || []).map(
+          (item: {
+            period_end: string;
+            value: string | number;
+            fiscal_quarter?: number;
           }) => ({
-            name: item.member, // Use member as the series name
-            values: item.values || [],
+            date: item.period_end,
+            value:
+              typeof item.value === "number"
+                ? item.value
+                : parseFloat(item.value) || 0,
+            fiscal_quarter: item.fiscal_quarter,
           })
         );
 
-        metricData = {
-          series: series,
+        // Sort by date (oldest first)
+        seriesData.sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+
+        return {
+          name: seriesItem.name,
+          data: seriesData,
         };
-      } else {
-        throw new Error("Empty array received from API");
       }
-    } else {
-      // Case 3: Single object - normalize to series format
-      metricData = {
-        series: [
-          {
-            name: rawData.normalized_label || "Total",
-            values: rawData.values || [],
-          },
-        ],
-      };
-    }
+    );
 
-    if (!metricData) {
-      throw new Error("Invalid data structure received from API");
-    }
-
-    // Validate that we have series data
-    if (!metricData.series) {
-      throw new Error("Invalid data structure received from API");
-    }
-
-    // Check if this is axis data with multiple series
-    if (axis && metricData.series) {
-      // Handle multiple series for axis data
-      const series: FinancialDataSeries[] = metricData.series.map(
-        (seriesItem: {
-          name: string;
-          values: Array<{
-            period_end: string;
-            value: string | number;
-            fiscal_quarter?: number;
-          }>;
-        }) => {
-          const seriesData: FinancialDataPoint[] = (
-            seriesItem.values || []
-          ).map(
-            (item: {
-              period_end: string;
-              value: string | number;
-              fiscal_quarter?: number;
-            }) => ({
-              date: item.period_end,
-              value:
-                typeof item.value === "number"
-                  ? item.value
-                  : parseFloat(item.value) || 0,
-              fiscal_quarter: item.fiscal_quarter,
-            })
-          );
-
-          // Sort by date (oldest first)
-          seriesData.sort(
-            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-          );
-
-          return {
-            name: seriesItem.name,
-            data: seriesData,
-          };
-        }
-      );
-
-      return {
-        ticker,
-        metric: normalizedLabel,
-        granularity,
-        series,
-      };
-    } else {
-      // Handle single series data (no axis) - convert to series format
-      const series: FinancialDataSeries[] = metricData.series.map(
-        (seriesItem: {
-          name: string;
-          values: Array<{
-            period_end: string;
-            value: string | number;
-            fiscal_quarter?: number;
-          }>;
-        }) => {
-          const seriesData: FinancialDataPoint[] = (
-            seriesItem.values || []
-          ).map(
-            (item: {
-              period_end: string;
-              value: string | number;
-              fiscal_quarter?: number;
-            }) => ({
-              date: item.period_end,
-              value:
-                typeof item.value === "number"
-                  ? item.value
-                  : parseFloat(item.value) || 0,
-              fiscal_quarter: item.fiscal_quarter,
-            })
-          );
-
-          // Sort by date (oldest first)
-          seriesData.sort(
-            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-          );
-
-          return {
-            name: seriesItem.name,
-            data: seriesData,
-          };
-        }
-      );
-
-      return {
-        ticker,
-        metric: normalizedLabel,
-        granularity,
-        series,
-      };
-    }
+    return {
+      ticker,
+      metric: normalizedLabel,
+      granularity,
+      series,
+    };
   }
 
   static async getStatementData(

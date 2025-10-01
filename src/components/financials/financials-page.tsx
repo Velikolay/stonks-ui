@@ -83,6 +83,7 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
               self.findIndex(
                 m =>
                   m.normalized_label === metric.normalized_label &&
+                  m.statement === metric.statement &&
                   (m.axis || null) === (metric.axis || null)
               )
           )

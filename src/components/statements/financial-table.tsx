@@ -73,7 +73,8 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
         data.ticker,
         metric.normalized_label,
         data.granularity,
-        metric.axis
+        metric.axis,
+        data.statement
       );
       setChartData(financialData);
     } catch {
