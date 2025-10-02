@@ -17,14 +17,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FinancialChart } from "./financial-chart";
-import { FinancialDataService } from "@/lib/services/financial-data";
-
-interface FinancialMetric {
-  normalized_label: string;
-  statement: string;
-  count: number;
-  axis?: string;
-}
+import {
+  FinancialDataService,
+  FinancialMetric,
+} from "@/lib/services/financial-data";
 
 interface FinancialDataPoint {
   date: string;
@@ -51,7 +47,9 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
   const [availableMetrics, setAvailableMetrics] = useState<FinancialMetric[]>(
     []
   );
-  const [selectedMetric, setSelectedMetric] = useState<string>("");
+  const [selectedMetric, setSelectedMetric] = useState<FinancialMetric | null>(
+    null
+  );
   const [granularity, setGranularity] = useState<"yearly" | "quarterly">(
     "quarterly"
   );
@@ -97,10 +95,7 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
         // Auto-select first metric if none selected
         if (uniqueMetrics.length > 0 && !selectedMetric) {
           const firstMetric = uniqueMetrics[0];
-          const uniqueValue = firstMetric.axis
-            ? `${firstMetric.normalized_label}|${firstMetric.axis}`
-            : firstMetric.normalized_label;
-          setSelectedMetric(uniqueValue || `metric-0`);
+          setSelectedMetric(firstMetric);
         }
       } catch {
         setError("Failed to load available metrics");
@@ -121,16 +116,12 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
         setLoading(true);
         setError(null);
 
-        // Extract normalized_label and axis from the selected value
-        const [normalizedLabel, axis] = selectedMetric.includes("|")
-          ? selectedMetric.split("|")
-          : [selectedMetric, undefined];
-
         const data = await FinancialDataService.getFinancialData(
           ticker,
-          normalizedLabel,
+          selectedMetric.normalized_label,
           granularity,
-          axis
+          selectedMetric.axis,
+          selectedMetric.statement
         );
         setFinancialData(data);
 
@@ -206,8 +197,11 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
                   Financial Metric
                 </label>
                 <Select
-                  value={selectedMetric}
-                  onValueChange={setSelectedMetric}
+                  value={selectedMetric ? selectedMetric.id : ""}
+                  onValueChange={value => {
+                    const metric = availableMetrics.find(m => m.id === value);
+                    setSelectedMetric(metric || null);
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue
@@ -236,14 +230,11 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
                               const uniqueKey = metric.axis
                                 ? `${metric.normalized_label}-${metric.axis}-${index}`
                                 : `${metric.normalized_label}-${index}`;
-                              const uniqueValue = metric.axis
-                                ? `${metric.normalized_label}|${metric.axis}`
-                                : metric.normalized_label;
 
                               return (
                                 <SelectItem
                                   key={uniqueKey}
-                                  value={uniqueValue || `metric-${index}`}
+                                  value={metric.id}
                                   className="pl-6"
                                 >
                                   {displayLabel} ({metric.count})
@@ -289,24 +280,11 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
           <Card>
             <CardHeader>
               <CardTitle>
-                {(() => {
-                  // Parse the selectedMetric value to extract normalized_label and axis
-                  const [normalizedLabel, axis] = selectedMetric.includes("|")
-                    ? selectedMetric.split("|")
-                    : [selectedMetric, null];
-
-                  const metric = availableMetrics.find(
-                    m =>
-                      m.normalized_label === normalizedLabel &&
-                      (m.axis || null) === (axis || null)
-                  );
-                  if (metric) {
-                    return metric.axis
-                      ? `${metric.normalized_label} (${metric.axis})`
-                      : metric.normalized_label;
-                  }
-                  return selectedMetric;
-                })()}
+                {selectedMetric
+                  ? selectedMetric.axis
+                    ? `${selectedMetric.normalized_label} (${selectedMetric.axis})`
+                    : selectedMetric.normalized_label
+                  : "No metric selected"}
               </CardTitle>
               <CardDescription>
                 {ticker} -{" "}

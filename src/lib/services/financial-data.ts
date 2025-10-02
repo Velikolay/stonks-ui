@@ -1,10 +1,26 @@
 const API_BASE_URL = "http://localhost:8000";
 
-export interface FinancialMetric {
+interface RawFinancialMetric {
   normalized_label: string;
   statement: string;
   count: number;
   axis?: string;
+}
+
+export class FinancialMetric {
+  id: string;
+  normalized_label: string;
+  statement: string;
+  count: number;
+  axis?: string;
+
+  constructor(data: RawFinancialMetric) {
+    this.id = `${data.normalized_label}-${data.statement}-${data.axis || "no-axis"}`;
+    this.normalized_label = data.normalized_label;
+    this.statement = data.statement;
+    this.count = data.count;
+    this.axis = data.axis;
+  }
 }
 
 export interface FinancialDataPoint {
@@ -50,15 +66,17 @@ export class FinancialDataService {
       throw new Error(`Failed to fetch metrics: ${response.statusText}`);
     }
 
-    const metrics = await response.json();
+    const rawMetrics = await response.json();
 
-    // Filter out invalid metrics
-    const filteredMetrics = metrics.filter(
-      (metric: FinancialMetric) =>
-        metric &&
-        metric.normalized_label &&
-        metric.normalized_label.trim() !== ""
-    );
+    // Filter out invalid metrics and create FinancialMetric instances
+    const filteredMetrics = rawMetrics
+      .filter(
+        (metric: RawFinancialMetric) =>
+          metric &&
+          metric.normalized_label &&
+          metric.normalized_label.trim() !== ""
+      )
+      .map((metric: RawFinancialMetric) => new FinancialMetric(metric));
 
     return filteredMetrics;
   }
@@ -74,6 +92,9 @@ export class FinancialDataService {
     url.searchParams.set("ticker", ticker);
     url.searchParams.set("granularity", granularity);
     url.searchParams.set("normalized_labels", normalizedLabel);
+    if (statement) {
+      url.searchParams.set("statement", statement);
+    }
     if (axis) {
       url.searchParams.set("axis", axis);
     }
@@ -96,36 +117,8 @@ export class FinancialDataService {
         throw new Error("Empty array received from API");
       }
 
-      if (rawData.length > 1 && statement) {
-        // Filter by statement when multiple series are available
-        const sameStatementSeries = rawData.filter(
-          (item: {
-            statement?: string;
-            member?: string;
-            normalized_label?: string;
-            values?: Array<{
-              period_end: string;
-              value: string | number;
-              fiscal_quarter?: number;
-            }>;
-          }) => item.statement === statement
-        );
-
-        if (sameStatementSeries.length > 0) {
-          // Use series from the same statement
-          seriesToProcess = axis
-            ? sameStatementSeries
-            : sameStatementSeries.slice(0, 1);
-        } else {
-          // Fallback to original logic if no matching statement
-          const seriesCount = axis ? rawData.length : 1;
-          seriesToProcess = rawData.slice(0, seriesCount);
-        }
-      } else {
-        // Original logic for single series or when no statement filter
-        const seriesCount = axis ? rawData.length : 1;
-        seriesToProcess = rawData.slice(0, seriesCount);
-      }
+      const seriesCount = axis ? rawData.length : 1;
+      seriesToProcess = rawData.slice(0, seriesCount);
     } else {
       // Single object - normalize to array format
       seriesToProcess = [rawData];
