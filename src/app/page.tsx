@@ -148,11 +148,11 @@ export default async function Home() {
               </CardHeader>
               <CardContent>
                 <div className="flex gap-4">
-                  <Link href="/AAPL/financials">
-                    <Button>View AAPL Financials</Button>
+                  <Link href="/AAPL/charts">
+                    <Button>View AAPL Charts</Button>
                   </Link>
-                  <Link href="/MSFT/financials">
-                    <Button variant="outline">View MSFT Financials</Button>
+                  <Link href="/MSFT/charts">
+                    <Button variant="outline">View MSFT Charts</Button>
                   </Link>
                 </div>
               </CardContent>

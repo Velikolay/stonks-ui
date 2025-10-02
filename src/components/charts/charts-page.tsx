@@ -39,11 +39,11 @@ interface FinancialData {
   series: FinancialDataSeries[];
 }
 
-interface FinancialsPageProps {
+interface ChartsPageProps {
   ticker: string;
 }
 
-export function FinancialsPage({ ticker }: FinancialsPageProps) {
+export function ChartsPage({ ticker }: ChartsPageProps) {
   const [availableMetrics, setAvailableMetrics] = useState<FinancialMetric[]>(
     []
   );
@@ -174,10 +174,10 @@ export function FinancialsPage({ ticker }: FinancialsPageProps) {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-            {ticker} Financials
+            {ticker} Charts
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
-            Financial metrics and performance data
+            Financial charts and performance data
           </p>
         </div>
 

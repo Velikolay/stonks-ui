@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FinancialChart } from "../financials/financial-chart";
+import { FinancialChart } from "../charts/financial-chart";
 
 interface FinancialTableProps {
   data: StatementData | null;
