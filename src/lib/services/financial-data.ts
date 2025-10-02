@@ -11,15 +11,15 @@ export class FinancialMetric {
   id: string;
   normalized_label: string;
   statement: string;
-  count: number;
   axis?: string;
+  count: number;
 
   constructor(data: RawFinancialMetric) {
     this.id = `${data.normalized_label}-${data.statement}-${data.axis || "no-axis"}`;
     this.normalized_label = data.normalized_label;
     this.statement = data.statement;
-    this.count = data.count;
     this.axis = data.axis;
+    this.count = data.count;
   }
 }
 
