@@ -101,11 +101,6 @@ export function FinancialChart({
         }
       });
 
-      if (currentTotal === 0) {
-        growthData.push({ date: currentDate, growth: null });
-        continue;
-      }
-
       // Find previous period for comparison
       let previousTotal = 0;
       let previousDate: string | null = null;
@@ -161,9 +156,18 @@ export function FinancialChart({
         }
       }
 
-      if (previousTotal > 0) {
-        const growth = ((currentTotal - previousTotal) / previousTotal) * 100;
-        growthData.push({ date: currentDate, growth });
+      // Only skip if both current and previous totals are zero (no meaningful growth to calculate)
+      if (currentTotal === 0 && previousTotal === 0) {
+        growthData.push({ date: currentDate, growth: null });
+        continue;
+      }
+
+      if (previousTotal !== 0) {
+        const growth =
+          ((currentTotal - previousTotal) / Math.abs(previousTotal)) * 100;
+        // Cap extreme growth values to prevent chart scaling issues
+        const cappedGrowth = Math.max(-1000, Math.min(1000, growth));
+        growthData.push({ date: currentDate, growth: cappedGrowth });
       } else {
         growthData.push({ date: currentDate, growth: null });
       }
