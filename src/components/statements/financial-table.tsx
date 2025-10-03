@@ -151,43 +151,71 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
       metric?: (typeof data.metrics)[0];
     }> = [];
 
-    // Group metrics by their abstract hierarchy
-    const groupedMetrics = new Map<string, Array<(typeof data.metrics)[0]>>();
+    // Define tree node type
+    type TreeNode = {
+      children: Map<string, TreeNode>;
+      metrics: Array<(typeof data.metrics)[0]>;
+    };
 
+    // Build a tree structure to avoid duplicate headers
+    const tree = new Map<string, TreeNode>();
+
+    // Build the tree structure
     data.metrics.forEach(metric => {
       const abstracts = metric.abstracts || [];
-      const hierarchyKey = abstracts.join("|"); // Create a unique key for this hierarchy path
 
-      if (!groupedMetrics.has(hierarchyKey)) {
-        groupedMetrics.set(hierarchyKey, []);
+      // Navigate to the deepest level and add the metric
+      let current = tree;
+      for (let i = 0; i < abstracts.length; i++) {
+        const segment = abstracts[i];
+        if (!current.has(segment)) {
+          current.set(segment, {
+            children: new Map(),
+            metrics: [],
+          });
+        }
+        current = current.get(segment)!.children;
       }
-      groupedMetrics.get(hierarchyKey)!.push(metric);
+
+      // Add metric to the deepest level
+      if (current.has("__metrics__")) {
+        current.get("__metrics__")!.metrics.push(metric);
+      } else {
+        current.set("__metrics__", {
+          children: new Map(),
+          metrics: [metric],
+        });
+      }
     });
 
-    // Process each hierarchy group
-    groupedMetrics.forEach(metrics => {
-      const abstracts = metrics[0].abstracts || [];
+    // Flatten the tree structure into a flat array
+    const flattenTree = (node: Map<string, TreeNode>, level: number = 0) => {
+      for (const [key, value] of node) {
+        if (key === "__metrics__") {
+          // Add all metrics at this level
+          value.metrics.forEach((metric: (typeof data.metrics)[0]) => {
+            structure.push({
+              type: "metric",
+              level: level,
+              text: metric.normalized_label,
+              metric,
+            });
+          });
+        } else {
+          // Add header for this level
+          structure.push({
+            type: "header",
+            level: level,
+            text: key,
+          });
 
-      // Add headers for this hierarchy (only once per hierarchy)
-      abstracts.forEach((abstract, index) => {
-        structure.push({
-          type: "header",
-          level: index,
-          text: abstract,
-        });
-      });
+          // Recursively process children
+          flattenTree(value.children, level + 1);
+        }
+      }
+    };
 
-      // Add all metrics that belong to this hierarchy
-      metrics.forEach(metric => {
-        structure.push({
-          type: "metric",
-          level: abstracts.length,
-          text: metric.normalized_label,
-          metric,
-        });
-      });
-    });
-
+    flattenTree(tree);
     return structure;
   };
 
