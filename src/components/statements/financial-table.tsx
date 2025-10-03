@@ -138,7 +138,7 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
     } else if (absValue >= 1e3) {
       return `${(value / 1e3).toFixed(1)}K`;
     } else {
-      return value.toFixed(0);
+      return value.toFixed(2);
     }
   };
 
@@ -151,31 +151,40 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
       metric?: (typeof data.metrics)[0];
     }> = [];
 
-    // Track which headers we've already added to avoid duplicates
-    const addedHeaders = new Set<string>();
+    // Group metrics by their abstract hierarchy
+    const groupedMetrics = new Map<string, Array<(typeof data.metrics)[0]>>();
 
     data.metrics.forEach(metric => {
       const abstracts = metric.abstracts || [];
+      const hierarchyKey = abstracts.join("|"); // Create a unique key for this hierarchy path
 
-      // Add each abstract level as a header (if not already added)
+      if (!groupedMetrics.has(hierarchyKey)) {
+        groupedMetrics.set(hierarchyKey, []);
+      }
+      groupedMetrics.get(hierarchyKey)!.push(metric);
+    });
+
+    // Process each hierarchy group
+    groupedMetrics.forEach(metrics => {
+      const abstracts = metrics[0].abstracts || [];
+
+      // Add headers for this hierarchy (only once per hierarchy)
       abstracts.forEach((abstract, index) => {
-        const headerKey = `${abstract}-${index}`;
-        if (!addedHeaders.has(headerKey)) {
-          structure.push({
-            type: "header",
-            level: index,
-            text: abstract,
-          });
-          addedHeaders.add(headerKey);
-        }
+        structure.push({
+          type: "header",
+          level: index,
+          text: abstract,
+        });
       });
 
-      // Add the metric at the deepest level
-      structure.push({
-        type: "metric",
-        level: abstracts.length,
-        text: metric.normalized_label,
-        metric,
+      // Add all metrics that belong to this hierarchy
+      metrics.forEach(metric => {
+        structure.push({
+          type: "metric",
+          level: abstracts.length,
+          text: metric.normalized_label,
+          metric,
+        });
       });
     });
 
