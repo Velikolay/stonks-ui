@@ -241,17 +241,18 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
               return (
                 <TableRow key={`header-${index}`} className="bg-muted/50">
                   <TableCell
-                    className="font-semibold text-base py-3"
-                    style={{ paddingLeft: `${item.level * 24 + 16}px` }}
+                    className="font-semibold text-base py-3 whitespace-normal"
+                    style={{
+                      paddingLeft: `${item.level * 24 + 16}px`,
+                      position: 'relative',
+                      zIndex: 1
+                    }}
+                    colSpan={sortedDates.length + 2}
                   >
-                    {item.text}
+                    <div style={{ maxWidth: '300px', wordWrap: 'break-word' }}>
+                      {item.text}
+                    </div>
                   </TableCell>
-                  <TableCell className="text-center py-3">—</TableCell>
-                  {sortedDates.map(date => (
-                    <TableCell key={date} className="text-right py-3">
-                      —
-                    </TableCell>
-                  ))}
                 </TableRow>
               );
             } else {
