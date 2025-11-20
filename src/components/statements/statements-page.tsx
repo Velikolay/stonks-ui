@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   FinancialDataService,
   StatementData,
@@ -42,7 +42,6 @@ const urlValueToStatement = (value: string): StatementType | null => {
 
 export function StatementsPage({ ticker }: StatementsPageProps) {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   // Initialize state from URL query parameters
   const getInitialGranularity = (): Granularity => {
@@ -89,14 +88,24 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
   );
 
   // Update URL query parameters when state changes
+  // Use window.history.pushState to create history entries (back button will work)
+  // This avoids triggering Next.js navigation/chunk reloads while maintaining browser history
   const updateQueryParams = useCallback(
     (newGranularity: Granularity, newActiveTab: StatementType) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(window.location.search);
       params.set("granularity", newGranularity);
       params.set("statement", statementToUrlValue(newActiveTab));
-      router.replace(`?${params.toString()}`, { scroll: false });
+
+      // Use pushState to create a new history entry (back button will work)
+      // This updates URL without triggering Next.js router navigation
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.pushState(
+        { ...window.history.state, as: newUrl, url: newUrl },
+        "",
+        newUrl
+      );
     },
-    [searchParams, router]
+    []
   );
 
   // Sync state with URL on mount or when URL changes (but avoid infinite loops)
@@ -112,6 +121,28 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Listen for browser back/forward button to sync state
+  useEffect(() => {
+    const handlePopState = () => {
+      // When user navigates with back/forward, searchParams will update
+      // and the effect above will sync the state
+      // Force a re-read of searchParams by triggering a state update
+      const urlGranularity = getInitialGranularity();
+      const urlActiveTab = getInitialActiveTab();
+
+      if (urlGranularity !== granularity) {
+        setGranularity(urlGranularity);
+      }
+      if (urlActiveTab !== activeTab) {
+        setActiveTab(urlActiveTab);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [granularity, activeTab]);
 
   const fetchStatementData = useCallback(
     async (statement: StatementType, targetGranularity: Granularity) => {
