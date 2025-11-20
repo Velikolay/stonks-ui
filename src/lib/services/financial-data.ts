@@ -50,6 +50,8 @@ export interface StatementData {
     axis?: string;
     abstracts?: string[];
     data: FinancialDataPoint[];
+    concept?: string;
+    abstract_concepts?: string[];
   }>;
 }
 
@@ -190,13 +192,17 @@ export class FinancialDataService {
   static async getStatementData(
     ticker: string,
     statement: string,
-    granularity: "yearly" | "quarterly"
+    granularity: "yearly" | "quarterly",
+    debug?: boolean
   ): Promise<StatementData> {
     const url = new URL(`${API_BASE_URL}/financials/`);
     url.searchParams.set("ticker", ticker);
     url.searchParams.set("granularity", granularity);
     url.searchParams.set("statement", statement);
     url.searchParams.set("short", "true");
+    if (debug) {
+      url.searchParams.set("debug", "true");
+    }
 
     const response = await fetch(url.toString());
 
@@ -216,6 +222,8 @@ export class FinancialDataService {
         axis?: string;
         member?: string;
         abstracts?: string[];
+        concept?: string;
+        abstract_concepts?: string[];
         values?: Array<{
           period_end: string;
           value: string | number;
@@ -246,6 +254,8 @@ export class FinancialDataService {
           normalized_label: item.normalized_label,
           axis: item.axis,
           abstracts: item.abstracts,
+          concept: item.concept,
+          abstract_concepts: item.abstract_concepts,
           data,
         };
       }

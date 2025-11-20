@@ -25,9 +25,14 @@ import { FinancialChart } from "../charts/financial-chart";
 interface FinancialTableProps {
   data: StatementData | null;
   loading: boolean;
+  debug?: boolean;
 }
 
-export function FinancialTable({ data, loading }: FinancialTableProps) {
+export function FinancialTable({
+  data,
+  loading,
+  debug = false,
+}: FinancialTableProps) {
   const [selectedMetric, setSelectedMetric] = useState<{
     metric: string;
     axis?: string;
@@ -154,12 +159,14 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
       metric?: (typeof data.metrics)[0];
       abstractId?: string;
       parentAbstractId?: string;
+      concept?: string;
     }> = [];
 
     // Define tree node type
     type TreeNode = {
       children: Map<string, TreeNode>;
       metrics: Array<(typeof data.metrics)[0]>;
+      concept?: string;
     };
 
     // Build a tree structure to avoid duplicate headers
@@ -175,8 +182,9 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
         const segment = abstracts[i];
         if (!current.has(segment)) {
           current.set(segment, {
-            children: new Map(),
+            concept: metric.abstract_concepts?.[i],
             metrics: [],
+            children: new Map(),
           });
         }
         current = current.get(segment)!.children;
@@ -187,8 +195,8 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
         current.get("__metrics__")!.metrics.push(metric);
       } else {
         current.set("__metrics__", {
-          children: new Map(),
           metrics: [metric],
+          children: new Map(),
         });
       }
     });
@@ -209,6 +217,7 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
               text: metric.normalized_label,
               metric,
               parentAbstractId,
+              concept: metric.concept,
             });
           });
         } else {
@@ -221,6 +230,7 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
             text: key,
             abstractId,
             parentAbstractId,
+            concept: value.concept,
           });
 
           // Recursively process children
@@ -308,7 +318,14 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
                       >
                         ▶
                       </span>
-                      {item.text}
+                      <div className="flex flex-col">
+                        <span>{item.text}</span>
+                        {debug && item.concept && (
+                          <span className="text-xs text-muted-foreground/60 font-normal mt-0.5">
+                            {item.concept}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -320,12 +337,21 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
                     className="font-medium"
                     style={{ paddingLeft: `${item.level * 24 + 16}px` }}
                   >
-                    {item.text}
-                    {item.metric?.axis && (
-                      <span className="text-sm text-muted-foreground ml-2">
-                        ({item.metric.axis})
-                      </span>
-                    )}
+                    <div className="flex flex-col" style={{ maxWidth: "300px", wordWrap: "break-word" }}>
+                      <div>
+                        {item.text}
+                        {item.metric?.axis && (
+                          <span className="text-sm text-muted-foreground ml-2">
+                            ({item.metric.axis})
+                          </span>
+                        )}
+                      </div>
+                      {debug && item.concept && (
+                        <span className="text-xs text-muted-foreground/60 font-normal mt-0.5">
+                          {item.concept}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-center">
                     {item.metric && (
