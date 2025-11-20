@@ -337,7 +337,10 @@ export function FinancialTable({
                     className="font-medium"
                     style={{ paddingLeft: `${item.level * 24 + 16}px` }}
                   >
-                    <div className="flex flex-col" style={{ maxWidth: "300px", wordWrap: "break-word" }}>
+                    <div
+                      className="flex flex-col"
+                      style={{ maxWidth: "300px", wordWrap: "break-word" }}
+                    >
                       <div>
                         {item.text}
                         {item.metric?.axis && (
