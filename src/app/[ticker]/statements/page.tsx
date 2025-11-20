@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { StatementsPage } from "@/components/statements/statements-page";
 
 interface StatementsPageProps {
@@ -8,5 +9,9 @@ interface StatementsPageProps {
 
 export default async function Page({ params }: StatementsPageProps) {
   const { ticker } = await params;
-  return <StatementsPage ticker={ticker.toUpperCase()} />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <StatementsPage ticker={ticker.toUpperCase()} />
+    </Suspense>
+  );
 }

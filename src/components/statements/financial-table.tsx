@@ -49,6 +49,9 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
   const [chartLoading, setChartLoading] = useState(false);
   const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
   const [showGrowthLine, setShowGrowthLine] = useState<boolean>(false);
+  const [collapsedAbstracts, setCollapsedAbstracts] = useState<Set<string>>(
+    new Set()
+  );
 
   const handleChartClick = async (metric: {
     normalized_label: string;
@@ -149,6 +152,8 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
       level: number;
       text: string;
       metric?: (typeof data.metrics)[0];
+      abstractId?: string;
+      parentAbstractId?: string;
     }> = [];
 
     // Define tree node type
@@ -189,7 +194,11 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
     });
 
     // Flatten the tree structure into a flat array
-    const flattenTree = (node: Map<string, TreeNode>, level: number = 0) => {
+    const flattenTree = (
+      node: Map<string, TreeNode>,
+      level: number = 0,
+      parentAbstractId?: string
+    ) => {
       for (const [key, value] of node) {
         if (key === "__metrics__") {
           // Add all metrics at this level
@@ -199,18 +208,23 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
               level: level,
               text: metric.normalized_label,
               metric,
+              parentAbstractId,
             });
           });
         } else {
+          const abstractId = `${parentAbstractId ? parentAbstractId + "|" : ""}${key}`;
+
           // Add header for this level
           structure.push({
             type: "header",
             level: level,
             text: key,
+            abstractId,
+            parentAbstractId,
           });
 
           // Recursively process children
-          flattenTree(value.children, level + 1);
+          flattenTree(value.children, level + 1, abstractId);
         }
       }
     };
@@ -220,6 +234,39 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
   };
 
   const hierarchicalStructure = createHierarchicalStructure();
+
+  // Handle abstract collapse/expand
+  const toggleAbstract = (abstractId: string) => {
+    setCollapsedAbstracts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(abstractId)) {
+        newSet.delete(abstractId);
+      } else {
+        newSet.add(abstractId);
+      }
+      return newSet;
+    });
+  };
+
+  // Check if an item should be visible (not collapsed)
+  const isItemVisible = (item: (typeof hierarchicalStructure)[0]) => {
+    if (item.type === "metric") {
+      // Check if any parent abstract is collapsed
+      let currentParentId = item.parentAbstractId;
+      while (currentParentId) {
+        if (collapsedAbstracts.has(currentParentId)) {
+          return false;
+        }
+        // Find the parent's parent
+        const parentItem = hierarchicalStructure.find(
+          h => h.abstractId === currentParentId
+        );
+        currentParentId = parentItem?.parentAbstractId;
+      }
+      return true;
+    }
+    return true; // Headers are always visible
+  };
 
   return (
     <>
@@ -236,20 +283,31 @@ export function FinancialTable({ data, loading }: FinancialTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {hierarchicalStructure.map((item, index) => {
+          {hierarchicalStructure.filter(isItemVisible).map((item, index) => {
             if (item.type === "header") {
               return (
                 <TableRow key={`header-${index}`} className="bg-muted/50">
                   <TableCell
-                    className="font-semibold text-base py-3 whitespace-normal"
+                    className="font-semibold text-base py-3 whitespace-normal cursor-pointer hover:bg-muted/70"
                     style={{
                       paddingLeft: `${item.level * 24 + 16}px`,
-                      position: 'relative',
-                      zIndex: 1
+                      position: "relative",
+                      zIndex: 1,
                     }}
                     colSpan={sortedDates.length + 2}
+                    onClick={() =>
+                      item.abstractId && toggleAbstract(item.abstractId)
+                    }
                   >
-                    <div style={{ maxWidth: '300px', wordWrap: 'break-word' }}>
+                    <div
+                      style={{ maxWidth: "300px", wordWrap: "break-word" }}
+                      className="flex items-center gap-2"
+                    >
+                      <span
+                        className={`text-sm transition-transform ${collapsedAbstracts.has(item.abstractId || "") ? "rotate-0" : "rotate-90"}`}
+                      >
+                        ▶
+                      </span>
                       {item.text}
                     </div>
                   </TableCell>
