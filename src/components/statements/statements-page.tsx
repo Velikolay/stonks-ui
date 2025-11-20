@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   FinancialDataService,
@@ -146,37 +146,16 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     [ticker]
   );
 
-  // Track which statement+granularity combos we've initiated fetches for
-  const fetchingRef = useRef<Set<string>>(new Set());
-
-  // Clear fetching ref when granularity or ticker changes
-  useEffect(() => {
-    fetchingRef.current.clear();
-  }, [granularity, ticker]);
-
   // Fetch data when component mounts or when granularity/ticker changes
   // Only fetch if data doesn't exist for the current granularity
   useEffect(() => {
     statements.forEach(statement => {
-      const cacheKey = `${statement}-${granularity}-${ticker}`;
-
-      // Only fetch if:
-      // 1. We don't have cached data for this statement + granularity combo
-      // 2. We're not currently loading it
-      // 3. We haven't already initiated a fetch for this combo
-      if (
-        statementData[statement][granularity] === null &&
-        !loading[statement] &&
-        !fetchingRef.current.has(cacheKey)
-      ) {
-        fetchingRef.current.add(cacheKey);
-        fetchStatementData(statement, granularity).finally(() => {
-          // Remove from fetching set after fetch completes (success or error)
-          fetchingRef.current.delete(cacheKey);
-        });
+      // Only fetch if we don't have cached data for this statement + granularity combo
+      if (statementData[statement][granularity] === null) {
+        fetchStatementData(statement, granularity);
       }
     });
-    // Note: We intentionally don't include statementData/loading in deps to avoid
+    // Note: We intentionally don't include statementData in deps to avoid
     // re-running when data loads. The effect only needs to run when granularity/ticker changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [granularity, ticker, fetchStatementData, statements]);
