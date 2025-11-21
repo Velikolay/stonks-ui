@@ -41,13 +41,69 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Download, Upload, Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  Download,
+  Upload,
+  Plus,
+  Pencil,
+  Trash2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 
 const STATEMENT_TYPES: StatementType[] = [
   "Income Statement",
   "Balance Sheet",
   "Cash Flow Statement",
 ];
+
+type SortableColumn =
+  | "concept"
+  | "statement"
+  | "normalized_label"
+  | "is_abstract"
+  | "parent_concept"
+  | "description"
+  | "updated_at";
+
+interface SortableTableHeadProps {
+  column: SortableColumn;
+  label: string;
+  sortColumn: SortableColumn | null;
+  sortDirection: "asc" | "desc";
+  onSort: (column: SortableColumn) => void;
+  className?: string;
+}
+
+function SortableTableHead({
+  column,
+  label,
+  sortColumn,
+  sortDirection,
+  onSort,
+  className = "",
+}: SortableTableHeadProps) {
+  return (
+    <TableHead
+      className={`cursor-pointer hover:bg-muted/50 ${className}`}
+      onClick={() => onSort(column)}
+    >
+      <div className="flex items-center gap-2">
+        {label}
+        {sortColumn === column ? (
+          sortDirection === "asc" ? (
+            <ArrowUp className="h-4 w-4" />
+          ) : (
+            <ArrowDown className="h-4 w-4" />
+          )
+        ) : (
+          <ArrowUpDown className="h-4 w-4 opacity-50" />
+        )}
+      </div>
+    </TableHead>
+  );
+}
 
 export default function ConceptNormalizationPage() {
   const [overrides, setOverrides] = useState<ConceptNormalizationOverride[]>(
@@ -69,6 +125,8 @@ export default function ConceptNormalizationPage() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [updateExisting, setUpdateExisting] = useState(false);
   const [importResult, setImportResult] = useState<ImportSummary | null>(null);
+  const [sortColumn, setSortColumn] = useState<SortableColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Form state
   const [formData, setFormData] = useState({
@@ -230,7 +288,57 @@ export default function ConceptNormalizationPage() {
     }
   };
 
-  const filteredOverrides = overrides;
+  const handleSort = (column: SortableColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortValue = (
+    override: ConceptNormalizationOverride,
+    column: typeof sortColumn
+  ): string | number | Date | null => {
+    if (!column) return null;
+    switch (column) {
+      case "concept":
+        return override.concept.toLowerCase();
+      case "statement":
+        return override.statement.toLowerCase();
+      case "normalized_label":
+        return override.normalized_label.toLowerCase();
+      case "is_abstract":
+        return override.is_abstract ? 1 : 0;
+      case "parent_concept":
+        return (override.parent_concept || "").toLowerCase();
+      case "description":
+        return (override.description || "").toLowerCase();
+      case "updated_at":
+        return override.updated_at
+          ? new Date(override.updated_at).getTime()
+          : 0;
+      default:
+        return null;
+    }
+  };
+
+  const sortedOverrides = [...overrides].sort((a, b) => {
+    if (!sortColumn) return 0;
+    const aValue = getSortValue(a, sortColumn);
+    const bValue = getSortValue(b, sortColumn);
+
+    if (aValue === null && bValue === null) return 0;
+    if (aValue === null) return 1;
+    if (bValue === null) return -1;
+
+    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const filteredOverrides = sortedOverrides;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -342,14 +450,57 @@ export default function ConceptNormalizationPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="max-w-[300px]">Concept</TableHead>
-                        <TableHead>Statement</TableHead>
-                        <TableHead>Normalized Label</TableHead>
-                        <TableHead>Is Abstract</TableHead>
-                        <TableHead className="max-w-[300px]">
-                          Parent Concept
-                        </TableHead>
-                        <TableHead>Description</TableHead>
+                        <SortableTableHead
+                          column="concept"
+                          label="Concept"
+                          sortColumn={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                          className="max-w-[300px]"
+                        />
+                        <SortableTableHead
+                          column="statement"
+                          label="Statement"
+                          sortColumn={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        />
+                        <SortableTableHead
+                          column="normalized_label"
+                          label="Normalized Label"
+                          sortColumn={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        />
+                        <SortableTableHead
+                          column="is_abstract"
+                          label="Is Abstract"
+                          sortColumn={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        />
+                        <SortableTableHead
+                          column="parent_concept"
+                          label="Parent Concept"
+                          sortColumn={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                          className="max-w-[300px]"
+                        />
+                        <SortableTableHead
+                          column="description"
+                          label="Description"
+                          sortColumn={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        />
+                        <SortableTableHead
+                          column="updated_at"
+                          label="Updated At"
+                          sortColumn={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        />
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -381,6 +532,13 @@ export default function ConceptNormalizationPage() {
                           </TableCell>
                           <TableCell className="max-w-xs truncate">
                             {override.description || (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {override.updated_at ? (
+                              new Date(override.updated_at).toLocaleString()
+                            ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
