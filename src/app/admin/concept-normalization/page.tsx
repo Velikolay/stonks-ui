@@ -65,6 +65,7 @@ type SortableColumn =
   | "is_abstract"
   | "parent_concept"
   | "description"
+  | "aggregation"
   | "updated_at";
 
 interface SortableTableHeadProps {
@@ -136,6 +137,7 @@ export default function ConceptNormalizationPage() {
     is_abstract: false,
     parent_concept: "",
     description: "",
+    aggregation: "__none__" as "SUM_GROUP" | "__none__",
   });
 
   const fetchOverrides = useCallback(async () => {
@@ -167,6 +169,7 @@ export default function ConceptNormalizationPage() {
       is_abstract: false,
       parent_concept: "",
       description: "",
+      aggregation: "__none__",
     });
     setIsCreateDialogOpen(true);
   };
@@ -180,6 +183,7 @@ export default function ConceptNormalizationPage() {
       is_abstract: override.is_abstract,
       parent_concept: override.parent_concept || "",
       description: override.description || "",
+      aggregation: override.aggregation || "__none__",
     });
     setIsEditDialogOpen(true);
   };
@@ -198,6 +202,7 @@ export default function ConceptNormalizationPage() {
         is_abstract: formData.is_abstract,
         parent_concept: formData.parent_concept || null,
         description: formData.description || null,
+        aggregation: formData.aggregation === "__none__" ? null : formData.aggregation,
       });
       setIsCreateDialogOpen(false);
       fetchOverrides();
@@ -219,6 +224,7 @@ export default function ConceptNormalizationPage() {
           is_abstract: formData.is_abstract,
           parent_concept: formData.parent_concept || null,
           description: formData.description || null,
+          aggregation: formData.aggregation === "__none__" ? null : formData.aggregation,
         }
       );
       setIsEditDialogOpen(false);
@@ -315,6 +321,8 @@ export default function ConceptNormalizationPage() {
         return (override.parent_concept || "").toLowerCase();
       case "description":
         return (override.description || "").toLowerCase();
+      case "aggregation":
+        return (override.aggregation || "").toLowerCase();
       case "updated_at":
         return override.updated_at
           ? new Date(override.updated_at).getTime()
@@ -495,6 +503,13 @@ export default function ConceptNormalizationPage() {
                           onSort={handleSort}
                         />
                         <SortableTableHead
+                          column="aggregation"
+                          label="Aggregation"
+                          sortColumn={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        />
+                        <SortableTableHead
                           column="updated_at"
                           label="Updated At"
                           sortColumn={sortColumn}
@@ -532,6 +547,11 @@ export default function ConceptNormalizationPage() {
                           </TableCell>
                           <TableCell className="max-w-xs truncate">
                             {override.description || (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {override.aggregation || (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
@@ -672,6 +692,26 @@ export default function ConceptNormalizationPage() {
                 placeholder="Optional description"
               />
             </div>
+            <div>
+              <Label htmlFor="create-aggregation">Aggregation</Label>
+              <Select
+                value={formData.aggregation}
+                onValueChange={value =>
+                  setFormData({
+                    ...formData,
+                    aggregation: value as "SUM_GROUP" | "__none__",
+                  })
+                }
+              >
+                <SelectTrigger id="create-aggregation">
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  <SelectItem value="SUM_GROUP">SUM_GROUP</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -766,6 +806,26 @@ export default function ConceptNormalizationPage() {
                 }
                 placeholder="Optional description"
               />
+            </div>
+            <div>
+              <Label htmlFor="edit-aggregation">Aggregation</Label>
+              <Select
+                value={formData.aggregation}
+                onValueChange={value =>
+                  setFormData({
+                    ...formData,
+                    aggregation: value as "SUM_GROUP" | "__none__",
+                  })
+                }
+              >
+                <SelectTrigger id="edit-aggregation">
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  <SelectItem value="SUM_GROUP">SUM_GROUP</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

@@ -12,6 +12,7 @@ export interface ConceptNormalizationOverride {
   is_abstract: boolean;
   parent_concept?: string | null;
   description?: string | null;
+  aggregation?: "SUM_GROUP" | null;
   updated_at?: string | null;
 }
 
