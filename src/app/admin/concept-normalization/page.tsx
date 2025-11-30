@@ -50,6 +50,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  RefreshCw,
+  X,
 } from "lucide-react";
 
 const STATEMENT_TYPES: StatementType[] = [
@@ -128,6 +130,9 @@ export default function ConceptNormalizationPage() {
   const [importResult, setImportResult] = useState<ImportSummary | null>(null);
   const [sortColumn, setSortColumn] = useState<SortableColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [refreshConcurrent, setRefreshConcurrent] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshSuccess, setRefreshSuccess] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -202,7 +207,8 @@ export default function ConceptNormalizationPage() {
         is_abstract: formData.is_abstract,
         parent_concept: formData.parent_concept || null,
         description: formData.description || null,
-        aggregation: formData.aggregation === "__none__" ? null : formData.aggregation,
+        aggregation:
+          formData.aggregation === "__none__" ? null : formData.aggregation,
       });
       setIsCreateDialogOpen(false);
       fetchOverrides();
@@ -224,7 +230,8 @@ export default function ConceptNormalizationPage() {
           is_abstract: formData.is_abstract,
           parent_concept: formData.parent_concept || null,
           description: formData.description || null,
-          aggregation: formData.aggregation === "__none__" ? null : formData.aggregation,
+          aggregation:
+            formData.aggregation === "__none__" ? null : formData.aggregation,
         }
       );
       setIsEditDialogOpen(false);
@@ -303,6 +310,24 @@ export default function ConceptNormalizationPage() {
     }
   };
 
+  const handleRefreshFinancials = async () => {
+    setIsRefreshing(true);
+    setError(null);
+    setRefreshSuccess(null);
+    try {
+      await AdminService.refreshFinancials(refreshConcurrent);
+      setRefreshSuccess(
+        `Financials refreshed successfully (${refreshConcurrent ? "concurrent" : "synchronous"} mode)`
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to refresh financials"
+      );
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const getSortValue = (
     override: ConceptNormalizationOverride,
     column: typeof sortColumn
@@ -369,19 +394,42 @@ export default function ConceptNormalizationPage() {
             </div>
           </div>
 
+          {/* Success Display */}
+          {refreshSuccess && (
+            <Card className="mb-4 border-green-500 bg-green-50 dark:bg-green-950/20">
+              <CardContent className="py-3 px-4">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    {refreshSuccess}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setRefreshSuccess(null)}
+                    className="h-6 w-6 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Error Display */}
           {error && (
-            <Card className="mb-6 border-destructive">
-              <CardContent className="pt-6">
-                <p className="text-destructive">{error}</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setError(null)}
-                  className="mt-2"
-                >
-                  Dismiss
-                </Button>
+            <Card className="mb-4 border-destructive">
+              <CardContent className="py-3 px-4">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm text-destructive">{error}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setError(null)}
+                    className="h-6 w-6 shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -429,6 +477,33 @@ export default function ConceptNormalizationPage() {
                   <Upload className="mr-2 h-4 w-4" />
                   Import CSV
                 </Button>
+                <div className="flex items-center gap-2 border-l pl-4 ml-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="refresh-concurrent"
+                      checked={refreshConcurrent}
+                      onChange={e => setRefreshConcurrent(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <Label
+                      htmlFor="refresh-concurrent"
+                      className="cursor-pointer"
+                    >
+                      Concurrent
+                    </Label>
+                  </div>
+                  <Button
+                    onClick={handleRefreshFinancials}
+                    variant="outline"
+                    disabled={isRefreshing}
+                  >
+                    <RefreshCw
+                      className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                    />
+                    Refresh Financials
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -205,4 +205,24 @@ export class AdminService {
 
     return response.json();
   }
+
+  /**
+   * Refresh financials data
+   */
+  static async refreshFinancials(concurrent: boolean = true): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/admin/financials/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ concurrent }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to refresh financials: ${response.statusText} - ${errorText}`
+      );
+    }
+  }
 }
