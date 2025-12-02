@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   StatementData,
   FinancialDataService,
+  FinancialFiling,
 } from "@/lib/services/financial-data";
 import {
   Table,
@@ -26,12 +27,14 @@ interface FinancialTableProps {
   data: StatementData | null;
   loading: boolean;
   debug?: boolean;
+  filings?: FinancialFiling[];
 }
 
 export function FinancialTable({
   data,
   loading,
   debug = false,
+  filings = [],
 }: FinancialTableProps) {
   const [selectedMetric, setSelectedMetric] = useState<{
     metric: string;
@@ -125,9 +128,30 @@ export function FinancialTable({
     (a, b) => new Date(b).getTime() - new Date(a).getTime()
   );
 
+  // Create a map from fiscal_period_end to public_url for quick lookup
+  const filingUrlMap = new Map<string, string>();
+  filings.forEach(filing => {
+    if (filing.public_url && filing.fiscal_period_end) {
+      filingUrlMap.set(filing.fiscal_period_end, filing.public_url);
+    }
+  });
+
+  // Helper function to get filing URL for a date
+  const getFilingUrl = (date: string): string | null => {
+    if (filingUrlMap.has(date)) {
+      return filingUrlMap.get(date) || null;
+    }
+    return null;
+  };
+
   // Format date for display
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
+    if (data?.granularity === "yearly") {
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+      });
+    }
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -285,11 +309,26 @@ export function FinancialTable({
           <TableRow>
             <TableHead className="w-[300px]">Metric</TableHead>
             <TableHead className="w-[80px] text-center">Trend</TableHead>
-            {sortedDates.map(date => (
-              <TableHead key={date} className="text-center min-w-[100px]">
-                {formatDate(date)}
-              </TableHead>
-            ))}
+            {sortedDates.map(date => {
+              const filingUrl = getFilingUrl(date);
+              return (
+                <TableHead key={date} className="text-right min-w-[100px]">
+                  {filingUrl ? (
+                    <a
+                      href={filingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {formatDate(date)}
+                    </a>
+                  ) : (
+                    formatDate(date)
+                  )}
+                </TableHead>
+              );
+            })}
           </TableRow>
         </TableHeader>
         <TableBody>

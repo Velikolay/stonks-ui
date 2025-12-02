@@ -55,6 +55,19 @@ export interface StatementData {
   }>;
 }
 
+export interface FinancialFiling {
+  id: number;
+  company_id: number;
+  source: string;
+  filing_number: string;
+  form_type: string;
+  filing_date: string;
+  fiscal_period_end: string;
+  fiscal_year: number;
+  fiscal_quarter: number;
+  public_url: string | null;
+}
+
 export class FinancialDataService {
   static async getAvailableMetrics(
     ticker: string,
@@ -267,5 +280,25 @@ export class FinancialDataService {
       granularity,
       metrics,
     };
+  }
+
+  static async getFilings(
+    ticker: string,
+    formType?: string
+  ): Promise<FinancialFiling[]> {
+    const url = new URL(`${API_BASE_URL}/financials/filings`);
+    url.searchParams.set("ticker", ticker);
+    if (formType) {
+      url.searchParams.set("form_type", formType);
+    }
+
+    const response = await fetch(url.toString());
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch filings: ${response.statusText}`);
+    }
+
+    const filings = await response.json();
+    return filings;
   }
 }

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import {
   FinancialDataService,
   StatementData,
+  FinancialFiling,
 } from "@/lib/services/financial-data";
 import { FinancialTable } from "./financial-table";
 import { Button } from "@/components/ui/button";
@@ -87,6 +88,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     "Balance Sheet": false,
     "Cash Flow Statement": false,
   });
+  const [filings, setFilings] = useState<FinancialFiling[]>([]);
 
   const statements: StatementType[] = useMemo(
     () => ["Income Statement", "Balance Sheet", "Cash Flow Statement"],
@@ -205,6 +207,21 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     [ticker]
   );
 
+  // Fetch filings when component mounts or when ticker changes
+  useEffect(() => {
+    const fetchFilings = async () => {
+      try {
+        const filingsData = await FinancialDataService.getFilings(ticker);
+        setFilings(filingsData);
+      } catch {
+        // Silently handle error - filings will remain empty
+        setFilings([]);
+      }
+    };
+
+    fetchFilings();
+  }, [ticker]);
+
   // Fetch data when component mounts or when granularity/ticker/debug changes
   // Only fetch if data doesn't exist for the current granularity
   // Note: We need to refetch when debug changes since it affects the API response
@@ -282,6 +299,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
                     data={statementData[statement][granularity]}
                     loading={loading[statement]}
                     debug={debug}
+                    filings={filings}
                   />
                 </CardContent>
               </Card>
