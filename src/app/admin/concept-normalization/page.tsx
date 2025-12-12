@@ -66,8 +66,8 @@ type SortableColumn =
   | "normalized_label"
   | "is_abstract"
   | "parent_concept"
+  | "abstract_concept"
   | "description"
-  | "aggregation"
   | "updated_at";
 
 interface SortableTableHeadProps {
@@ -141,8 +141,8 @@ export default function ConceptNormalizationPage() {
     normalized_label: "",
     is_abstract: false,
     parent_concept: "",
+    abstract_concept: "",
     description: "",
-    aggregation: "__none__" as "SUM_GROUP" | "__none__",
   });
 
   const fetchOverrides = useCallback(async () => {
@@ -173,8 +173,8 @@ export default function ConceptNormalizationPage() {
       normalized_label: "",
       is_abstract: false,
       parent_concept: "",
+      abstract_concept: "",
       description: "",
-      aggregation: "__none__",
     });
     setIsCreateDialogOpen(true);
   };
@@ -187,8 +187,8 @@ export default function ConceptNormalizationPage() {
       normalized_label: override.normalized_label,
       is_abstract: override.is_abstract,
       parent_concept: override.parent_concept || "",
+      abstract_concept: override.abstract_concept || "",
       description: override.description || "",
-      aggregation: override.aggregation || "__none__",
     });
     setIsEditDialogOpen(true);
   };
@@ -206,9 +206,8 @@ export default function ConceptNormalizationPage() {
         normalized_label: formData.normalized_label,
         is_abstract: formData.is_abstract,
         parent_concept: formData.parent_concept || null,
+        abstract_concept: formData.abstract_concept || null,
         description: formData.description || null,
-        aggregation:
-          formData.aggregation === "__none__" ? null : formData.aggregation,
       });
       setIsCreateDialogOpen(false);
       fetchOverrides();
@@ -229,9 +228,8 @@ export default function ConceptNormalizationPage() {
           normalized_label: formData.normalized_label,
           is_abstract: formData.is_abstract,
           parent_concept: formData.parent_concept || null,
+          abstract_concept: formData.abstract_concept || null,
           description: formData.description || null,
-          aggregation:
-            formData.aggregation === "__none__" ? null : formData.aggregation,
         }
       );
       setIsEditDialogOpen(false);
@@ -344,10 +342,10 @@ export default function ConceptNormalizationPage() {
         return override.is_abstract ? 1 : 0;
       case "parent_concept":
         return (override.parent_concept || "").toLowerCase();
+      case "abstract_concept":
+        return (override.abstract_concept || "").toLowerCase();
       case "description":
         return (override.description || "").toLowerCase();
-      case "aggregation":
-        return (override.aggregation || "").toLowerCase();
       case "updated_at":
         return override.updated_at
           ? new Date(override.updated_at).getTime()
@@ -571,15 +569,16 @@ export default function ConceptNormalizationPage() {
                           className="max-w-[300px]"
                         />
                         <SortableTableHead
-                          column="description"
-                          label="Description"
+                          column="abstract_concept"
+                          label="Abstract Concept"
                           sortColumn={sortColumn}
                           sortDirection={sortDirection}
                           onSort={handleSort}
+                          className="max-w-[300px]"
                         />
                         <SortableTableHead
-                          column="aggregation"
-                          label="Aggregation"
+                          column="description"
+                          label="Description"
                           sortColumn={sortColumn}
                           sortDirection={sortDirection}
                           onSort={handleSort}
@@ -620,13 +619,13 @@ export default function ConceptNormalizationPage() {
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell className="max-w-xs truncate">
-                            {override.description || (
+                          <TableCell className="font-mono text-xs max-w-[300px] break-words">
+                            {override.abstract_concept || (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell>
-                            {override.aggregation || (
+                          <TableCell className="max-w-xs truncate">
+                            {override.description || (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
@@ -757,6 +756,21 @@ export default function ConceptNormalizationPage() {
               </p>
             </div>
             <div>
+              <Label htmlFor="create-abstract-concept">Abstract Concept</Label>
+              <Input
+                id="create-abstract-concept"
+                value={formData.abstract_concept}
+                onChange={e =>
+                  setFormData({ ...formData, abstract_concept: e.target.value })
+                }
+                placeholder="e.g., us-gaap:OperatingExpenses"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Must reference an existing override&apos;s (concept, statement)
+                pair
+              </p>
+            </div>
+            <div>
               <Label htmlFor="create-description">Description</Label>
               <Input
                 id="create-description"
@@ -766,26 +780,6 @@ export default function ConceptNormalizationPage() {
                 }
                 placeholder="Optional description"
               />
-            </div>
-            <div>
-              <Label htmlFor="create-aggregation">Aggregation</Label>
-              <Select
-                value={formData.aggregation}
-                onValueChange={value =>
-                  setFormData({
-                    ...formData,
-                    aggregation: value as "SUM_GROUP" | "__none__",
-                  })
-                }
-              >
-                <SelectTrigger id="create-aggregation">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
-                  <SelectItem value="SUM_GROUP">SUM_GROUP</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -864,7 +858,22 @@ export default function ConceptNormalizationPage() {
                 onChange={e =>
                   setFormData({ ...formData, parent_concept: e.target.value })
                 }
-                placeholder="e.g., us-gaap:OperatingExpenses"
+                placeholder="e.g., us-gaap:AssetsCurrent"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Must reference an existing override&apos;s (concept, statement)
+                pair
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="edit-abstract-concept">Abstract Concept</Label>
+              <Input
+                id="edit-abstract-concept"
+                value={formData.abstract_concept}
+                onChange={e =>
+                  setFormData({ ...formData, abstract_concept: e.target.value })
+                }
+                placeholder="e.g., us-gaap:AssetsCurrentAbstract"
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Must reference an existing override&apos;s (concept, statement)
@@ -881,26 +890,6 @@ export default function ConceptNormalizationPage() {
                 }
                 placeholder="Optional description"
               />
-            </div>
-            <div>
-              <Label htmlFor="edit-aggregation">Aggregation</Label>
-              <Select
-                value={formData.aggregation}
-                onValueChange={value =>
-                  setFormData({
-                    ...formData,
-                    aggregation: value as "SUM_GROUP" | "__none__",
-                  })
-                }
-              >
-                <SelectTrigger id="edit-aggregation">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
-                  <SelectItem value="SUM_GROUP">SUM_GROUP</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -953,7 +942,7 @@ export default function ConceptNormalizationPage() {
             <DialogDescription>
               Upload a CSV file to import concept normalization overrides. The
               CSV should have headers: concept, statement, normalized_label,
-              is_abstract, parent_concept, description.
+              is_abstract, parent_concept, abstract_concept, description.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
