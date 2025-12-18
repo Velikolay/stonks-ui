@@ -140,6 +140,7 @@ function ConceptNormalizationOverrideFields({
 }) {
   const idPrefix = mode;
   const isEdit = mode === "edit";
+  const disableAbstractOnlyFields = formData.is_abstract;
 
   return (
     <div className="space-y-4">
@@ -215,9 +216,26 @@ function ConceptNormalizationOverrideFields({
           type="checkbox"
           id={`${idPrefix}-is-abstract`}
           checked={formData.is_abstract}
-          onChange={e =>
-            setFormData(prev => ({ ...prev, is_abstract: e.target.checked }))
-          }
+          onChange={e => {
+            const checked = e.target.checked;
+            setFormData(prev => {
+              if (checked) {
+                return {
+                  ...prev,
+                  is_abstract: true,
+                  parent_concept: "",
+                  weight: "__none__",
+                  unit: "__none__",
+                };
+              }
+              return {
+                ...prev,
+                is_abstract: false,
+                weight: "1",
+                unit: "usd",
+              };
+            });
+          }}
           className="h-4 w-4 rounded border-gray-300"
         />
         <Label htmlFor={`${idPrefix}-is-abstract`} className="cursor-pointer">
@@ -225,7 +243,7 @@ function ConceptNormalizationOverrideFields({
         </Label>
       </div>
 
-      <div>
+      <div className={disableAbstractOnlyFields ? "opacity-50" : ""}>
         <Label htmlFor={`${idPrefix}-parent-concept`}>Parent Concept</Label>
         <Input
           id={`${idPrefix}-parent-concept`}
@@ -234,6 +252,8 @@ function ConceptNormalizationOverrideFields({
             setFormData(prev => ({ ...prev, parent_concept: e.target.value }))
           }
           placeholder={parentConceptPlaceholder}
+          disabled={disableAbstractOnlyFields}
+          className={disableAbstractOnlyFields ? "bg-muted" : ""}
         />
         <p className="text-xs text-muted-foreground mt-1">
           Must reference an existing override&apos;s (concept, statement) pair
@@ -255,10 +275,11 @@ function ConceptNormalizationOverrideFields({
         </p>
       </div>
 
-      <div>
+      <div className={disableAbstractOnlyFields ? "opacity-50" : ""}>
         <Label htmlFor={`${idPrefix}-weight`}>Weight</Label>
         <Select
           value={formData.weight}
+          disabled={disableAbstractOnlyFields}
           onValueChange={value =>
             setFormData(prev => ({ ...prev, weight: value as WeightOption }))
           }
@@ -274,10 +295,11 @@ function ConceptNormalizationOverrideFields({
         </Select>
       </div>
 
-      <div>
+      <div className={disableAbstractOnlyFields ? "opacity-50" : ""}>
         <Label htmlFor={`${idPrefix}-unit`}>Unit</Label>
         <Select
           value={formData.unit}
+          disabled={disableAbstractOnlyFields}
           onValueChange={value =>
             setFormData(prev => ({ ...prev, unit: value as UnitOption }))
           }
@@ -342,8 +364,8 @@ export default function ConceptNormalizationPage() {
     is_abstract: false,
     parent_concept: "",
     abstract_concept: "",
-    weight: "__none__",
-    unit: "__none__",
+    weight: "1",
+    unit: "usd",
     description: "",
   });
 
@@ -376,8 +398,8 @@ export default function ConceptNormalizationPage() {
       is_abstract: false,
       parent_concept: "",
       abstract_concept: "",
-      weight: "__none__",
-      unit: "__none__",
+      weight: "1",
+      unit: "usd",
       description: "",
     });
     setIsCreateDialogOpen(true);
@@ -385,23 +407,32 @@ export default function ConceptNormalizationPage() {
 
   const handleEdit = (override: ConceptNormalizationOverride) => {
     setEditingOverride(override);
+    const isAbstract = override.is_abstract;
     setFormData({
       concept: override.concept,
       statement: override.statement,
       normalized_label: override.normalized_label,
-      is_abstract: override.is_abstract,
+      is_abstract: isAbstract,
       parent_concept: override.parent_concept || "",
       abstract_concept: override.abstract_concept || "",
-      weight:
-        override.weight === -1
+      weight: isAbstract
+        ? "__none__"
+        : override.weight === -1
           ? "-1"
           : override.weight === 1
             ? "1"
-            : "__none__",
-      unit:
-        override.unit === "usd" || override.unit === "usdPerShare"
+            : override.weight === null || override.weight === undefined
+              ? "1"
+              : "__none__",
+      unit: isAbstract
+        ? "__none__"
+        : override.unit === "usd" || override.unit === "usdPerShare"
           ? override.unit
-          : "__none__",
+          : override.unit === null ||
+              override.unit === undefined ||
+              override.unit === ""
+            ? "usd"
+            : "__none__",
       description: override.description || "",
     });
     setIsEditDialogOpen(true);
