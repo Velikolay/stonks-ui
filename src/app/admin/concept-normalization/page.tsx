@@ -67,6 +67,8 @@ type SortableColumn =
   | "is_abstract"
   | "parent_concept"
   | "abstract_concept"
+  | "weight"
+  | "unit"
   | "description"
   | "updated_at";
 
@@ -108,6 +110,204 @@ function SortableTableHead({
   );
 }
 
+type WeightOption = "__none__" | "-1" | "1";
+type UnitOption = "__none__" | "usd" | "usdPerShare";
+
+type OverrideFormData = {
+  concept: string;
+  statement: StatementType;
+  normalized_label: string;
+  is_abstract: boolean;
+  parent_concept: string;
+  abstract_concept: string;
+  weight: WeightOption;
+  unit: UnitOption;
+  description: string;
+};
+
+function ConceptNormalizationOverrideFields({
+  mode,
+  formData,
+  setFormData,
+  parentConceptPlaceholder,
+  abstractConceptPlaceholder,
+}: {
+  mode: "create" | "edit";
+  formData: OverrideFormData;
+  setFormData: React.Dispatch<React.SetStateAction<OverrideFormData>>;
+  parentConceptPlaceholder: string;
+  abstractConceptPlaceholder: string;
+}) {
+  const idPrefix = mode;
+  const isEdit = mode === "edit";
+
+  return (
+    <div className="space-y-4">
+      {isEdit ? (
+        <>
+          <div>
+            <Label>Concept</Label>
+            <Input value={formData.concept} disabled className="bg-muted" />
+          </div>
+          <div>
+            <Label>Statement</Label>
+            <Input value={formData.statement} disabled className="bg-muted" />
+          </div>
+        </>
+      ) : (
+        <>
+          <div>
+            <Label htmlFor={`${idPrefix}-concept`}>Concept *</Label>
+            <Input
+              id={`${idPrefix}-concept`}
+              value={formData.concept}
+              onChange={e =>
+                setFormData(prev => ({ ...prev, concept: e.target.value }))
+              }
+              placeholder="e.g., us-gaap:Revenues"
+            />
+          </div>
+          <div>
+            <Label htmlFor={`${idPrefix}-statement`}>Statement *</Label>
+            <Select
+              value={formData.statement}
+              onValueChange={value =>
+                setFormData(prev => ({
+                  ...prev,
+                  statement: value as StatementType,
+                }))
+              }
+            >
+              <SelectTrigger id={`${idPrefix}-statement`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATEMENT_TYPES.map(stmt => (
+                  <SelectItem key={stmt} value={stmt}>
+                    {stmt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
+
+      <div>
+        <Label htmlFor={`${idPrefix}-normalized-label`}>
+          Normalized Label *
+        </Label>
+        <Input
+          id={`${idPrefix}-normalized-label`}
+          value={formData.normalized_label}
+          onChange={e =>
+            setFormData(prev => ({
+              ...prev,
+              normalized_label: e.target.value,
+            }))
+          }
+          placeholder="e.g., Revenue"
+        />
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <input
+          type="checkbox"
+          id={`${idPrefix}-is-abstract`}
+          checked={formData.is_abstract}
+          onChange={e =>
+            setFormData(prev => ({ ...prev, is_abstract: e.target.checked }))
+          }
+          className="h-4 w-4 rounded border-gray-300"
+        />
+        <Label htmlFor={`${idPrefix}-is-abstract`} className="cursor-pointer">
+          Is Abstract
+        </Label>
+      </div>
+
+      <div>
+        <Label htmlFor={`${idPrefix}-parent-concept`}>Parent Concept</Label>
+        <Input
+          id={`${idPrefix}-parent-concept`}
+          value={formData.parent_concept}
+          onChange={e =>
+            setFormData(prev => ({ ...prev, parent_concept: e.target.value }))
+          }
+          placeholder={parentConceptPlaceholder}
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Must reference an existing override&apos;s (concept, statement) pair
+        </p>
+      </div>
+
+      <div>
+        <Label htmlFor={`${idPrefix}-abstract-concept`}>Abstract Concept</Label>
+        <Input
+          id={`${idPrefix}-abstract-concept`}
+          value={formData.abstract_concept}
+          onChange={e =>
+            setFormData(prev => ({ ...prev, abstract_concept: e.target.value }))
+          }
+          placeholder={abstractConceptPlaceholder}
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Must reference an existing override&apos;s (concept, statement) pair
+        </p>
+      </div>
+
+      <div>
+        <Label htmlFor={`${idPrefix}-weight`}>Weight</Label>
+        <Select
+          value={formData.weight}
+          onValueChange={value =>
+            setFormData(prev => ({ ...prev, weight: value as WeightOption }))
+          }
+        >
+          <SelectTrigger id={`${idPrefix}-weight`}>
+            <SelectValue placeholder="None" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">None</SelectItem>
+            <SelectItem value="-1">-1</SelectItem>
+            <SelectItem value="1">1</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label htmlFor={`${idPrefix}-unit`}>Unit</Label>
+        <Select
+          value={formData.unit}
+          onValueChange={value =>
+            setFormData(prev => ({ ...prev, unit: value as UnitOption }))
+          }
+        >
+          <SelectTrigger id={`${idPrefix}-unit`}>
+            <SelectValue placeholder="None" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">None</SelectItem>
+            <SelectItem value="usd">usd</SelectItem>
+            <SelectItem value="usdPerShare">usdPerShare</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label htmlFor={`${idPrefix}-description`}>Description</Label>
+        <Input
+          id={`${idPrefix}-description`}
+          value={formData.description}
+          onChange={e =>
+            setFormData(prev => ({ ...prev, description: e.target.value }))
+          }
+          placeholder="Optional description"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function ConceptNormalizationPage() {
   const [overrides, setOverrides] = useState<ConceptNormalizationOverride[]>(
     []
@@ -135,13 +335,15 @@ export default function ConceptNormalizationPage() {
   const [refreshSuccess, setRefreshSuccess] = useState<string | null>(null);
 
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<OverrideFormData>({
     concept: "",
     statement: "Income Statement" as StatementType,
     normalized_label: "",
     is_abstract: false,
     parent_concept: "",
     abstract_concept: "",
+    weight: "__none__",
+    unit: "__none__",
     description: "",
   });
 
@@ -174,6 +376,8 @@ export default function ConceptNormalizationPage() {
       is_abstract: false,
       parent_concept: "",
       abstract_concept: "",
+      weight: "__none__",
+      unit: "__none__",
       description: "",
     });
     setIsCreateDialogOpen(true);
@@ -188,6 +392,16 @@ export default function ConceptNormalizationPage() {
       is_abstract: override.is_abstract,
       parent_concept: override.parent_concept || "",
       abstract_concept: override.abstract_concept || "",
+      weight:
+        override.weight === -1
+          ? "-1"
+          : override.weight === 1
+            ? "1"
+            : "__none__",
+      unit:
+        override.unit === "usd" || override.unit === "usdPerShare"
+          ? override.unit
+          : "__none__",
       description: override.description || "",
     });
     setIsEditDialogOpen(true);
@@ -200,6 +414,10 @@ export default function ConceptNormalizationPage() {
 
   const handleCreateSubmit = async () => {
     try {
+      const weight =
+        formData.weight === "__none__" ? null : parseFloat(formData.weight);
+      const unit = formData.unit === "__none__" ? null : formData.unit;
+
       await AdminService.createOverride({
         concept: formData.concept,
         statement: formData.statement,
@@ -207,6 +425,8 @@ export default function ConceptNormalizationPage() {
         is_abstract: formData.is_abstract,
         parent_concept: formData.parent_concept || null,
         abstract_concept: formData.abstract_concept || null,
+        weight,
+        unit,
         description: formData.description || null,
       });
       setIsCreateDialogOpen(false);
@@ -221,6 +441,10 @@ export default function ConceptNormalizationPage() {
   const handleEditSubmit = async () => {
     if (!editingOverride) return;
     try {
+      const weight =
+        formData.weight === "__none__" ? null : parseFloat(formData.weight);
+      const unit = formData.unit === "__none__" ? null : formData.unit;
+
       await AdminService.updateOverride(
         editingOverride.concept,
         editingOverride.statement,
@@ -229,6 +453,8 @@ export default function ConceptNormalizationPage() {
           is_abstract: formData.is_abstract,
           parent_concept: formData.parent_concept || null,
           abstract_concept: formData.abstract_concept || null,
+          weight,
+          unit,
           description: formData.description || null,
         }
       );
@@ -344,6 +570,10 @@ export default function ConceptNormalizationPage() {
         return (override.parent_concept || "").toLowerCase();
       case "abstract_concept":
         return (override.abstract_concept || "").toLowerCase();
+      case "weight":
+        return override.weight ?? null;
+      case "unit":
+        return (override.unit || "").toLowerCase();
       case "description":
         return (override.description || "").toLowerCase();
       case "updated_at":
@@ -577,6 +807,21 @@ export default function ConceptNormalizationPage() {
                           className="max-w-[300px]"
                         />
                         <SortableTableHead
+                          column="weight"
+                          label="Weight"
+                          sortColumn={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                          className="text-right"
+                        />
+                        <SortableTableHead
+                          column="unit"
+                          label="Unit"
+                          sortColumn={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        />
+                        <SortableTableHead
                           column="description"
                           label="Description"
                           sortColumn={sortColumn}
@@ -621,6 +866,19 @@ export default function ConceptNormalizationPage() {
                           </TableCell>
                           <TableCell className="font-mono text-xs max-w-[300px] break-words">
                             {override.abstract_concept || (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {override.weight === null ||
+                            override.weight === undefined ? (
+                              <span className="text-muted-foreground">—</span>
+                            ) : (
+                              override.weight
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs max-w-[140px] break-words">
+                            {override.unit || (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
@@ -675,113 +933,13 @@ export default function ConceptNormalizationPage() {
               label.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="create-concept">Concept *</Label>
-              <Input
-                id="create-concept"
-                value={formData.concept}
-                onChange={e =>
-                  setFormData({ ...formData, concept: e.target.value })
-                }
-                placeholder="e.g., us-gaap:Revenues"
-              />
-            </div>
-            <div>
-              <Label htmlFor="create-statement">Statement *</Label>
-              <Select
-                value={formData.statement}
-                onValueChange={value =>
-                  setFormData({
-                    ...formData,
-                    statement: value as StatementType,
-                  })
-                }
-              >
-                <SelectTrigger id="create-statement">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATEMENT_TYPES.map(stmt => (
-                    <SelectItem key={stmt} value={stmt}>
-                      {stmt}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="create-normalized-label">
-                Normalized Label *
-              </Label>
-              <Input
-                id="create-normalized-label"
-                value={formData.normalized_label}
-                onChange={e =>
-                  setFormData({
-                    ...formData,
-                    normalized_label: e.target.value,
-                  })
-                }
-                placeholder="e.g., Revenue"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="create-is-abstract"
-                checked={formData.is_abstract}
-                onChange={e =>
-                  setFormData({ ...formData, is_abstract: e.target.checked })
-                }
-                className="h-4 w-4 rounded border-gray-300"
-              />
-              <Label htmlFor="create-is-abstract" className="cursor-pointer">
-                Is Abstract
-              </Label>
-            </div>
-            <div>
-              <Label htmlFor="create-parent-concept">Parent Concept</Label>
-              <Input
-                id="create-parent-concept"
-                value={formData.parent_concept}
-                onChange={e =>
-                  setFormData({ ...formData, parent_concept: e.target.value })
-                }
-                placeholder="e.g., us-gaap:OperatingExpenses"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Must reference an existing override&apos;s (concept, statement)
-                pair
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="create-abstract-concept">Abstract Concept</Label>
-              <Input
-                id="create-abstract-concept"
-                value={formData.abstract_concept}
-                onChange={e =>
-                  setFormData({ ...formData, abstract_concept: e.target.value })
-                }
-                placeholder="e.g., us-gaap:OperatingExpenses"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Must reference an existing override&apos;s (concept, statement)
-                pair
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="create-description">Description</Label>
-              <Input
-                id="create-description"
-                value={formData.description}
-                onChange={e =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="Optional description"
-              />
-            </div>
-          </div>
+          <ConceptNormalizationOverrideFields
+            mode="create"
+            formData={formData}
+            setFormData={setFormData}
+            parentConceptPlaceholder="e.g., us-gaap:OperatingExpenses"
+            abstractConceptPlaceholder="e.g., us-gaap:OperatingExpenses"
+          />
           <DialogFooter>
             <Button
               variant="outline"
@@ -813,85 +971,13 @@ export default function ConceptNormalizationPage() {
               {editingOverride?.statement}.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Concept</Label>
-              <Input value={formData.concept} disabled className="bg-muted" />
-            </div>
-            <div>
-              <Label>Statement</Label>
-              <Input value={formData.statement} disabled className="bg-muted" />
-            </div>
-            <div>
-              <Label htmlFor="edit-normalized-label">Normalized Label *</Label>
-              <Input
-                id="edit-normalized-label"
-                value={formData.normalized_label}
-                onChange={e =>
-                  setFormData({
-                    ...formData,
-                    normalized_label: e.target.value,
-                  })
-                }
-                placeholder="e.g., Revenue"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="edit-is-abstract"
-                checked={formData.is_abstract}
-                onChange={e =>
-                  setFormData({ ...formData, is_abstract: e.target.checked })
-                }
-                className="h-4 w-4 rounded border-gray-300"
-              />
-              <Label htmlFor="edit-is-abstract" className="cursor-pointer">
-                Is Abstract
-              </Label>
-            </div>
-            <div>
-              <Label htmlFor="edit-parent-concept">Parent Concept</Label>
-              <Input
-                id="edit-parent-concept"
-                value={formData.parent_concept}
-                onChange={e =>
-                  setFormData({ ...formData, parent_concept: e.target.value })
-                }
-                placeholder="e.g., us-gaap:AssetsCurrent"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Must reference an existing override&apos;s (concept, statement)
-                pair
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="edit-abstract-concept">Abstract Concept</Label>
-              <Input
-                id="edit-abstract-concept"
-                value={formData.abstract_concept}
-                onChange={e =>
-                  setFormData({ ...formData, abstract_concept: e.target.value })
-                }
-                placeholder="e.g., us-gaap:AssetsCurrentAbstract"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Must reference an existing override&apos;s (concept, statement)
-                pair
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="edit-description">Description</Label>
-              <Input
-                id="edit-description"
-                value={formData.description}
-                onChange={e =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="Optional description"
-              />
-            </div>
-          </div>
+          <ConceptNormalizationOverrideFields
+            mode="edit"
+            formData={formData}
+            setFormData={setFormData}
+            parentConceptPlaceholder="e.g., us-gaap:AssetsCurrent"
+            abstractConceptPlaceholder="e.g., us-gaap:AssetsCurrentAbstract"
+          />
           <DialogFooter>
             <Button
               variant="outline"
@@ -942,7 +1028,8 @@ export default function ConceptNormalizationPage() {
             <DialogDescription>
               Upload a CSV file to import concept normalization overrides. The
               CSV should have headers: concept, statement, normalized_label,
-              is_abstract, parent_concept, abstract_concept, description.
+              is_abstract, parent_concept, abstract_concept, weight, unit,
+              description.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

@@ -12,6 +12,8 @@ export interface ConceptNormalizationOverride {
   is_abstract: boolean;
   parent_concept?: string | null;
   abstract_concept?: string | null;
+  weight?: number | null;
+  unit?: string | null;
   description?: string | null;
   updated_at?: string | null;
 }
