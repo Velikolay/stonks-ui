@@ -1,11 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   StatementData,
   FinancialDataService,
   FinancialFiling,
 } from "@/lib/services/financial-data";
+import {
+  AdminService,
+  ConceptNormalizationOverride,
+  StatementType,
+} from "@/lib/services/admin";
 import {
   Table,
   TableBody,
@@ -18,16 +23,28 @@ import { MiniTrendChart } from "./mini-trend-chart";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FinancialChart } from "../charts/financial-chart";
+import { Button } from "@/components/ui/button";
+import { Plus, Pencil } from "lucide-react";
+import {
+  ConceptNormalizationForm,
+  OverrideFormData,
+  WeightOption,
+  UnitOption,
+} from "@/components/admin/concept-normalization-form";
 
 interface FinancialTableProps {
   data: StatementData | null;
   loading: boolean;
   debug?: boolean;
   filings?: FinancialFiling[];
+  adminMode?: boolean;
+  statement?: StatementType;
 }
 
 export function FinancialTable({
@@ -35,6 +52,8 @@ export function FinancialTable({
   loading,
   debug = false,
   filings = [],
+  adminMode = false,
+  statement,
 }: FinancialTableProps) {
   const [selectedMetric, setSelectedMetric] = useState<{
     metric: string;
@@ -60,6 +79,176 @@ export function FinancialTable({
   const [collapsedAbstracts, setCollapsedAbstracts] = useState<Set<string>>(
     new Set()
   );
+
+  // Admin mode state
+  const [overrides, setOverrides] = useState<ConceptNormalizationOverride[]>(
+    []
+  );
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingOverride, setEditingOverride] =
+    useState<ConceptNormalizationOverride | null>(null);
+  const [editingConcept, setEditingConcept] = useState<{
+    concept: string;
+    normalizedLabel: string;
+  } | null>(null);
+  const [formData, setFormData] = useState<OverrideFormData>({
+    concept: "",
+    statement: (statement || "Income Statement") as StatementType,
+    normalized_label: "",
+    is_abstract: false,
+    parent_concept: "",
+    abstract_concept: "",
+    weight: "1" as WeightOption,
+    unit: "usd" as UnitOption,
+    description: "",
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch overrides when in admin mode
+  const fetchOverrides = useCallback(async () => {
+    if (!adminMode || !statement) return;
+    try {
+      const data = await AdminService.listOverrides(statement);
+      setOverrides(data);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch overrides"
+      );
+    }
+  }, [adminMode, statement]);
+
+  useEffect(() => {
+    if (adminMode && statement) {
+      fetchOverrides();
+    }
+  }, [adminMode, statement, fetchOverrides]);
+
+  // Check if an override exists for a concept
+  const getOverrideForConcept = (
+    concept: string | undefined
+  ): ConceptNormalizationOverride | null => {
+    if (!concept || !statement) return null;
+    return (
+      overrides.find(o => o.concept === concept && o.statement === statement) ||
+      null
+    );
+  };
+
+  // Handle create button click
+  const handleCreateClick = (
+    concept: string | undefined,
+    normalizedLabel: string
+  ) => {
+    if (!concept || !statement) return;
+    setEditingConcept({ concept, normalizedLabel });
+    setFormData({
+      concept,
+      statement,
+      normalized_label: normalizedLabel,
+      is_abstract: false,
+      parent_concept: "",
+      abstract_concept: "",
+      weight: "1" as WeightOption,
+      unit: "usd" as UnitOption,
+      description: "",
+    });
+    setIsCreateDialogOpen(true);
+  };
+
+  // Handle edit button click
+  const handleEditClick = (override: ConceptNormalizationOverride) => {
+    setEditingOverride(override);
+    const isAbstract = override.is_abstract;
+    setFormData({
+      concept: override.concept,
+      statement: override.statement,
+      normalized_label: override.normalized_label,
+      is_abstract: isAbstract,
+      parent_concept: override.parent_concept || "",
+      abstract_concept: override.abstract_concept || "",
+      weight: (isAbstract
+        ? "__none__"
+        : override.weight === -1
+          ? "-1"
+          : override.weight === 1
+            ? "1"
+            : override.weight === null || override.weight === undefined
+              ? "1"
+              : "__none__") as WeightOption,
+      unit: (isAbstract
+        ? "__none__"
+        : override.unit === "usd" || override.unit === "usdPerShare"
+          ? override.unit
+          : override.unit === null ||
+              override.unit === undefined ||
+              override.unit === ""
+            ? "usd"
+            : "__none__") as UnitOption,
+      description: override.description || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  // Handle create submit
+  const handleCreateSubmit = async () => {
+    if (!editingConcept || !statement) return;
+    try {
+      const weight =
+        formData.weight === "__none__" ? null : parseFloat(formData.weight);
+      const unit = formData.unit === "__none__" ? null : formData.unit;
+
+      await AdminService.createOverride({
+        concept: formData.concept,
+        statement: formData.statement,
+        normalized_label: formData.normalized_label,
+        is_abstract: formData.is_abstract,
+        parent_concept: formData.parent_concept || null,
+        abstract_concept: formData.abstract_concept || null,
+        weight,
+        unit,
+        description: formData.description || null,
+      });
+      setIsCreateDialogOpen(false);
+      setEditingConcept(null);
+      fetchOverrides();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to create override"
+      );
+    }
+  };
+
+  // Handle edit submit
+  const handleEditSubmit = async () => {
+    if (!editingOverride || !statement) return;
+    try {
+      const weight =
+        formData.weight === "__none__" ? null : parseFloat(formData.weight);
+      const unit = formData.unit === "__none__" ? null : formData.unit;
+
+      await AdminService.updateOverride(
+        editingOverride.concept,
+        editingOverride.statement,
+        {
+          normalized_label: formData.normalized_label,
+          is_abstract: formData.is_abstract,
+          parent_concept: formData.parent_concept || null,
+          abstract_concept: formData.abstract_concept || null,
+          weight,
+          unit,
+          description: formData.description || null,
+        }
+      );
+      setIsEditDialogOpen(false);
+      setEditingOverride(null);
+      fetchOverrides();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update override"
+      );
+    }
+  };
 
   const handleChartClick = async (metric: {
     normalized_label: string;
@@ -302,6 +491,66 @@ export function FinancialTable({
     return true; // Headers are always visible
   };
 
+  // Helper component for override dialog
+  const OverrideDialog = ({
+    open,
+    onOpenChange,
+    mode,
+    title,
+    description,
+    onSubmit,
+    onCancel,
+    submitLabel,
+    submitDisabled,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    mode: "create" | "edit";
+    title: string;
+    description: string;
+    onSubmit: () => void;
+    onCancel: () => void;
+    submitLabel: string;
+    submitDisabled: boolean;
+  }) => (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {error && (
+          <div className="p-3 bg-destructive/10 text-destructive text-sm rounded">
+            {error}
+          </div>
+        )}
+        <ConceptNormalizationForm
+          mode={mode}
+          formData={formData}
+          setFormData={setFormData}
+          parentConceptPlaceholder={
+            mode === "create"
+              ? "e.g., us-gaap:OperatingExpenses"
+              : "e.g., us-gaap:AssetsCurrent"
+          }
+          abstractConceptPlaceholder={
+            mode === "create"
+              ? "e.g., us-gaap:OperatingExpenses"
+              : "e.g., us-gaap:AssetsCurrentAbstract"
+          }
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button onClick={onSubmit} disabled={submitDisabled}>
+            {submitLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   return (
     <>
       <Table>
@@ -334,6 +583,9 @@ export function FinancialTable({
         <TableBody>
           {hierarchicalStructure.filter(isItemVisible).map((item, index) => {
             if (item.type === "header") {
+              const override = item.concept
+                ? getOverrideForConcept(item.concept)
+                : null;
               return (
                 <TableRow key={`header-${index}`} className="bg-muted/50">
                   <TableCell
@@ -357,8 +609,38 @@ export function FinancialTable({
                       >
                         ▶
                       </span>
-                      <div className="flex flex-col">
-                        <span>{item.text}</span>
+                      <div className="flex flex-col flex-1">
+                        <div className="flex items-center gap-2">
+                          <span>{item.text}</span>
+                          {adminMode && item.concept && (
+                            <div
+                              className="flex items-center gap-1"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              {override ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                  onClick={() => handleEditClick(override)}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                  onClick={() =>
+                                    handleCreateClick(item.concept, item.text)
+                                  }
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         {debug && item.concept && (
                           <span className="text-xs text-muted-foreground/60 font-normal mt-0.5">
                             {item.concept}
@@ -370,6 +652,9 @@ export function FinancialTable({
                 </TableRow>
               );
             } else {
+              const override = item.concept
+                ? getOverrideForConcept(item.concept)
+                : null;
               return (
                 <TableRow key={`metric-${index}`}>
                   <TableCell
@@ -380,12 +665,42 @@ export function FinancialTable({
                       className="flex flex-col"
                       style={{ maxWidth: "300px", wordWrap: "break-word" }}
                     >
-                      <div>
-                        {item.text}
-                        {item.metric?.axis && (
-                          <span className="text-sm text-muted-foreground ml-2">
-                            ({item.metric.axis})
-                          </span>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          {item.text}
+                          {item.metric?.axis && (
+                            <span className="text-sm text-muted-foreground ml-2">
+                              ({item.metric.axis})
+                            </span>
+                          )}
+                        </div>
+                        {adminMode && item.concept && (
+                          <div className="flex items-center gap-1">
+                            {override ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={() => handleEditClick(override)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={() =>
+                                  handleCreateClick(
+                                    item.concept,
+                                    item.metric?.normalized_label || item.text
+                                  )
+                                }
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
                         )}
                       </div>
                       {debug && item.concept && (
@@ -448,6 +763,44 @@ export function FinancialTable({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Create Override Dialog */}
+      <OverrideDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        mode="create"
+        title="Create Concept Normalization Override"
+        description="Create a new override to map a financial concept to a normalized label."
+        onSubmit={handleCreateSubmit}
+        onCancel={() => {
+          setIsCreateDialogOpen(false);
+          setEditingConcept(null);
+          setError(null);
+        }}
+        submitLabel="Create"
+        submitDisabled={
+          !formData.concept ||
+          !formData.normalized_label ||
+          !formData.statement
+        }
+      />
+
+      {/* Edit Override Dialog */}
+      <OverrideDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        mode="edit"
+        title="Edit Concept Normalization Override"
+        description={`Update the override for ${editingOverride?.concept} in ${editingOverride?.statement}.`}
+        onSubmit={handleEditSubmit}
+        onCancel={() => {
+          setIsEditDialogOpen(false);
+          setEditingOverride(null);
+          setError(null);
+        }}
+        submitLabel="Save Changes"
+        submitDisabled={!formData.normalized_label}
+      />
     </>
   );
 }

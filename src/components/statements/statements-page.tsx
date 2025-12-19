@@ -300,6 +300,8 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
                     loading={loading[statement]}
                     debug={debug}
                     filings={filings}
+                    adminMode={searchParams.get("mode") === "admin"}
+                    statement={statement}
                   />
                 </CardContent>
               </Card>
