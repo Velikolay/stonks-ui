@@ -60,6 +60,65 @@ import {
   UnitOption,
 } from "@/components/admin/concept-normalization-form";
 
+// Memoized placeholder constants - defined outside component to prevent recreation
+const PARENT_PLACEHOLDER = "e.g., us-gaap:OperatingExpenses";
+const ABSTRACT_PLACEHOLDER = "e.g., us-gaap:OperatingExpensesAbstract";
+
+// Extract OverrideDialog as a separate component to prevent recreation
+interface OverrideDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  mode: "create" | "edit";
+  title: string;
+  description: string;
+  onSubmit: () => void;
+  onCancel: () => void;
+  submitLabel: string;
+  submitDisabled: boolean;
+  formData: OverrideFormData;
+  setFormData: React.Dispatch<React.SetStateAction<OverrideFormData>>;
+}
+
+const OverrideDialogComponent = React.memo(function OverrideDialog({
+  open,
+  onOpenChange,
+  mode,
+  title,
+  description,
+  onSubmit,
+  onCancel,
+  submitLabel,
+  submitDisabled,
+  formData,
+  setFormData,
+}: OverrideDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <ConceptNormalizationForm
+          mode={mode}
+          formData={formData}
+          setFormData={setFormData}
+          parentConceptPlaceholder={PARENT_PLACEHOLDER}
+          abstractConceptPlaceholder={ABSTRACT_PLACEHOLDER}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button onClick={onSubmit} disabled={submitDisabled}>
+            {submitLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
 const STATEMENT_TYPES: StatementType[] = [
   "Income Statement",
   "Balance Sheet",
@@ -418,61 +477,6 @@ export default function ConceptNormalizationPage() {
 
   const filteredOverrides = sortedOverrides;
 
-  // Helper component for override dialog
-  const OverrideDialog = ({
-    open,
-    onOpenChange,
-    mode,
-    title,
-    description,
-    onSubmit,
-    onCancel,
-    submitLabel,
-    submitDisabled,
-  }: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    mode: "create" | "edit";
-    title: string;
-    description: string;
-    onSubmit: () => void;
-    onCancel: () => void;
-    submitLabel: string;
-    submitDisabled: boolean;
-  }) => (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <ConceptNormalizationForm
-          mode={mode}
-          formData={formData}
-          setFormData={setFormData}
-          parentConceptPlaceholder={
-            mode === "create"
-              ? "e.g., us-gaap:OperatingExpenses"
-              : "e.g., us-gaap:AssetsCurrent"
-          }
-          abstractConceptPlaceholder={
-            mode === "create"
-              ? "e.g., us-gaap:OperatingExpenses"
-              : "e.g., us-gaap:AssetsCurrentAbstract"
-          }
-        />
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button onClick={onSubmit} disabled={submitDisabled}>
-            {submitLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="container mx-auto px-4 py-8">
@@ -796,7 +800,7 @@ export default function ConceptNormalizationPage() {
       </div>
 
       {/* Create Dialog */}
-      <OverrideDialog
+      <OverrideDialogComponent
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         mode="create"
@@ -806,14 +810,14 @@ export default function ConceptNormalizationPage() {
         onCancel={() => setIsCreateDialogOpen(false)}
         submitLabel="Create"
         submitDisabled={
-          !formData.concept ||
-          !formData.normalized_label ||
-          !formData.statement
+          !formData.concept || !formData.normalized_label || !formData.statement
         }
+        formData={formData}
+        setFormData={setFormData}
       />
 
       {/* Edit Dialog */}
-      <OverrideDialog
+      <OverrideDialogComponent
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
         mode="edit"
@@ -823,6 +827,8 @@ export default function ConceptNormalizationPage() {
         onCancel={() => setIsEditDialogOpen(false)}
         submitLabel="Save Changes"
         submitDisabled={!formData.normalized_label}
+        formData={formData}
+        setFormData={setFormData}
       />
 
       {/* Delete Dialog */}

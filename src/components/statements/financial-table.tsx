@@ -38,6 +38,72 @@ import {
   UnitOption,
 } from "@/components/admin/concept-normalization-form";
 
+// Memoized placeholder constants - defined outside component to prevent recreation
+const PARENT_PLACEHOLDER = "e.g., us-gaap:OperatingExpenses";
+const ABSTRACT_PLACEHOLDER = "e.g., us-gaap:OperatingExpensesAbstract";
+
+// Extract OverrideDialog as a separate component to prevent recreation
+interface OverrideDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  mode: "create" | "edit";
+  title: string;
+  description: string;
+  onSubmit: () => void;
+  onCancel: () => void;
+  submitLabel: string;
+  submitDisabled: boolean;
+  formData: OverrideFormData;
+  setFormData: React.Dispatch<React.SetStateAction<OverrideFormData>>;
+  error: string | null;
+}
+
+const OverrideDialogComponent = React.memo(function OverrideDialog({
+  open,
+  onOpenChange,
+  mode,
+  title,
+  description,
+  onSubmit,
+  onCancel,
+  submitLabel,
+  submitDisabled,
+  formData,
+  setFormData,
+  error,
+}: OverrideDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {error && (
+          <div className="p-3 bg-destructive/10 text-destructive text-sm rounded">
+            {error}
+          </div>
+        )}
+        <ConceptNormalizationForm
+          mode={mode}
+          formData={formData}
+          setFormData={setFormData}
+          parentConceptPlaceholder={PARENT_PLACEHOLDER}
+          abstractConceptPlaceholder={ABSTRACT_PLACEHOLDER}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button onClick={onSubmit} disabled={submitDisabled}>
+            {submitLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
 interface FinancialTableProps {
   data: StatementData | null;
   loading: boolean;
@@ -491,66 +557,6 @@ export function FinancialTable({
     return true; // Headers are always visible
   };
 
-  // Helper component for override dialog
-  const OverrideDialog = ({
-    open,
-    onOpenChange,
-    mode,
-    title,
-    description,
-    onSubmit,
-    onCancel,
-    submitLabel,
-    submitDisabled,
-  }: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    mode: "create" | "edit";
-    title: string;
-    description: string;
-    onSubmit: () => void;
-    onCancel: () => void;
-    submitLabel: string;
-    submitDisabled: boolean;
-  }) => (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        {error && (
-          <div className="p-3 bg-destructive/10 text-destructive text-sm rounded">
-            {error}
-          </div>
-        )}
-        <ConceptNormalizationForm
-          mode={mode}
-          formData={formData}
-          setFormData={setFormData}
-          parentConceptPlaceholder={
-            mode === "create"
-              ? "e.g., us-gaap:OperatingExpenses"
-              : "e.g., us-gaap:AssetsCurrent"
-          }
-          abstractConceptPlaceholder={
-            mode === "create"
-              ? "e.g., us-gaap:OperatingExpenses"
-              : "e.g., us-gaap:AssetsCurrentAbstract"
-          }
-        />
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button onClick={onSubmit} disabled={submitDisabled}>
-            {submitLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-
   return (
     <>
       <Table>
@@ -765,7 +771,7 @@ export function FinancialTable({
       </Dialog>
 
       {/* Create Override Dialog */}
-      <OverrideDialog
+      <OverrideDialogComponent
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         mode="create"
@@ -779,14 +785,15 @@ export function FinancialTable({
         }}
         submitLabel="Create"
         submitDisabled={
-          !formData.concept ||
-          !formData.normalized_label ||
-          !formData.statement
+          !formData.concept || !formData.normalized_label || !formData.statement
         }
+        formData={formData}
+        setFormData={setFormData}
+        error={error}
       />
 
       {/* Edit Override Dialog */}
-      <OverrideDialog
+      <OverrideDialogComponent
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
         mode="edit"
@@ -800,6 +807,9 @@ export function FinancialTable({
         }}
         submitLabel="Save Changes"
         submitDisabled={!formData.normalized_label}
+        formData={formData}
+        setFormData={setFormData}
+        error={error}
       />
     </>
   );
