@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   FinancialDataService,
@@ -58,9 +58,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     return parsed || "Income Statement";
   };
 
-  const getInitialDebug = (): boolean => {
-    return searchParams.get("debug") === "true";
-  };
+  const adminMode = searchParams.get("mode") === "admin";
 
   const [activeTab, setActiveTab] = useState<StatementType>(
     getInitialActiveTab()
@@ -68,8 +66,6 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
   const [granularity, setGranularity] = useState<Granularity>(
     getInitialGranularity()
   );
-  const [debug, setDebug] = useState<boolean>(getInitialDebug());
-  const prevDebugRef = useRef<boolean>(debug);
   // Cache data by both statement type and granularity
   const [statementData, setStatementData] = useState<{
     [key in StatementType]: {
@@ -99,19 +95,10 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
   // Use window.history.pushState to create history entries (back button will work)
   // This avoids triggering Next.js navigation/chunk reloads while maintaining browser history
   const updateQueryParams = useCallback(
-    (
-      newGranularity: Granularity,
-      newActiveTab: StatementType,
-      newDebug: boolean
-    ) => {
+    (newGranularity: Granularity, newActiveTab: StatementType) => {
       const params = new URLSearchParams(window.location.search);
       params.set("granularity", newGranularity);
       params.set("statement", statementToUrlValue(newActiveTab));
-      if (newDebug) {
-        params.set("debug", "true");
-      } else {
-        params.delete("debug");
-      }
 
       // Use pushState to create a new history entry (back button will work)
       // This updates URL without triggering Next.js router navigation
@@ -129,16 +116,12 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
   useEffect(() => {
     const urlGranularity = getInitialGranularity();
     const urlActiveTab = getInitialActiveTab();
-    const urlDebug = getInitialDebug();
 
     if (urlGranularity !== granularity) {
       setGranularity(urlGranularity);
     }
     if (urlActiveTab !== activeTab) {
       setActiveTab(urlActiveTab);
-    }
-    if (urlDebug !== debug) {
-      setDebug(urlDebug);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -151,7 +134,6 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
       // Force a re-read of searchParams by triggering a state update
       const urlGranularity = getInitialGranularity();
       const urlActiveTab = getInitialActiveTab();
-      const urlDebug = getInitialDebug();
 
       if (urlGranularity !== granularity) {
         setGranularity(urlGranularity);
@@ -159,30 +141,29 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
       if (urlActiveTab !== activeTab) {
         setActiveTab(urlActiveTab);
       }
-      if (urlDebug !== debug) {
-        setDebug(urlDebug);
-      }
     };
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [granularity, activeTab, debug]);
+  }, [granularity, activeTab]);
 
   const fetchStatementData = useCallback(
     async (
       statement: StatementType,
       targetGranularity: Granularity,
-      debugMode: boolean
+      isAdminMode: boolean
     ) => {
       setLoading(prev => ({ ...prev, [statement]: true }));
 
       try {
+        // Convert adminMode to debug parameter for the backend
+        const debug = isAdminMode;
         const data = await FinancialDataService.getStatementData(
           ticker,
           statement,
           targetGranularity,
-          debugMode
+          debug
         );
         setStatementData(prev => ({
           ...prev,
@@ -222,23 +203,17 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     fetchFilings();
   }, [ticker]);
 
-  // Fetch data when component mounts or when granularity/ticker/debug changes
+  // Fetch data when component mounts or when granularity/ticker/adminMode changes
   // Only fetch if data doesn't exist for the current granularity
-  // Note: We need to refetch when debug changes since it affects the API response
+  // Note: We need to refetch when adminMode changes since it affects the API response
   useEffect(() => {
-    const debugChanged = prevDebugRef.current !== debug;
-    prevDebugRef.current = debug;
-
     statements.forEach(statement => {
-      // Fetch if we don't have cached data, or if debug mode changed (need fresh data)
-      if (statementData[statement][granularity] === null || debugChanged) {
-        fetchStatementData(statement, granularity, debug);
-      }
+      // Always fetch to ensure we have the correct data for the current adminMode
+      fetchStatementData(statement, granularity, adminMode);
     });
     // Note: We intentionally don't include statementData in deps to avoid
-    // re-running when data loads. The effect only needs to run when granularity/ticker/debug changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [granularity, ticker, debug, fetchStatementData, statements]);
+    // re-running when data loads. The effect only needs to run when granularity/ticker/adminMode changes.
+  }, [granularity, ticker, adminMode, fetchStatementData, statements]);
 
   return (
     <div className="container mx-auto p-6">
@@ -254,7 +229,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
             onClick={() => {
               const newGranularity = "yearly";
               setGranularity(newGranularity);
-              updateQueryParams(newGranularity, activeTab, debug);
+              updateQueryParams(newGranularity, activeTab);
             }}
           >
             Yearly
@@ -264,7 +239,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
             onClick={() => {
               const newGranularity = "quarterly";
               setGranularity(newGranularity);
-              updateQueryParams(newGranularity, activeTab, debug);
+              updateQueryParams(newGranularity, activeTab);
             }}
           >
             Quarterly
@@ -277,7 +252,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
           onValueChange={(value: string) => {
             const newActiveTab = value as StatementType;
             setActiveTab(newActiveTab);
-            updateQueryParams(granularity, newActiveTab, debug);
+            updateQueryParams(granularity, newActiveTab);
           }}
         >
           <TabsList className="grid w-full grid-cols-3">
@@ -298,9 +273,8 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
                   <FinancialTable
                     data={statementData[statement][granularity]}
                     loading={loading[statement]}
-                    debug={debug}
                     filings={filings}
-                    adminMode={searchParams.get("mode") === "admin"}
+                    adminMode={adminMode}
                     statement={statement}
                   />
                 </CardContent>

@@ -107,7 +107,6 @@ const OverrideDialogComponent = React.memo(function OverrideDialog({
 interface FinancialTableProps {
   data: StatementData | null;
   loading: boolean;
-  debug?: boolean;
   filings?: FinancialFiling[];
   adminMode?: boolean;
   statement?: StatementType;
@@ -116,7 +115,6 @@ interface FinancialTableProps {
 export function FinancialTable({
   data,
   loading,
-  debug = false,
   filings = [],
   adminMode = false,
   statement,
@@ -647,7 +645,7 @@ export function FinancialTable({
                             </div>
                           )}
                         </div>
-                        {debug && item.concept && (
+                        {adminMode && item.concept && (
                           <span className="text-xs text-muted-foreground/60 font-normal mt-0.5">
                             {item.concept}
                           </span>
@@ -709,7 +707,7 @@ export function FinancialTable({
                           </div>
                         )}
                       </div>
-                      {debug && item.concept && (
+                      {adminMode && item.concept && (
                         <span className="text-xs text-muted-foreground/60 font-normal mt-0.5">
                           {item.concept}
                         </span>
