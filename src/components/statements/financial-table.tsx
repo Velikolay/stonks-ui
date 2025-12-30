@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   StatementData,
   FinancialDataService,
@@ -110,6 +110,7 @@ interface FinancialTableProps {
   filings?: FinancialFiling[];
   adminMode?: boolean;
   statement?: StatementType;
+  showAllMetrics?: boolean;
 }
 
 export function FinancialTable({
@@ -118,6 +119,7 @@ export function FinancialTable({
   filings = [],
   adminMode = false,
   statement,
+  showAllMetrics = false,
 }: FinancialTableProps) {
   const [selectedMetric, setSelectedMetric] = useState<{
     metric: string;
@@ -353,6 +355,65 @@ export function FinancialTable({
     setChartData(null);
   };
 
+  // Get all unique dates from all metrics for table headers
+  // This ensures all periods are shown in column headers even if metrics are filtered
+  const allDates = useMemo(() => {
+    const dates = new Set<string>();
+    if (data) {
+      data.metrics.forEach(metric => {
+        metric.data.forEach(point => {
+          dates.add(point.date);
+        });
+      });
+    }
+    return dates;
+  }, [data]);
+
+  const sortedDates = useMemo(() => {
+    return Array.from(allDates).sort(
+      (a, b) => new Date(b).getTime() - new Date(a).getTime()
+    );
+  }, [allDates]);
+
+  // Filter metrics based on sparseness and recency (compute before early returns)
+  const filteredMetrics = useMemo(() => {
+    if (!data || !data.metrics.length) {
+      return [];
+    }
+
+    if (showAllMetrics) {
+      return data.metrics;
+    }
+
+    const totalPeriods = sortedDates.length;
+    if (totalPeriods === 0) {
+      return data.metrics;
+    }
+
+    // Consider recent periods (last 3 periods or last 2 years for yearly data)
+    const recentPeriodCount = data.granularity === "yearly" ? 2 : 3;
+    const recentDates = sortedDates.slice(0, recentPeriodCount);
+    const recentDatesSet = new Set(recentDates);
+
+    // A metric is considered sparse if it has data in less than 30% of periods
+    const sparsenessThreshold = 0.3;
+
+    return data.metrics.filter(metric => {
+      // Always include metrics that have data in at least one recent period
+      const hasRecentData = metric.data.some(point =>
+        recentDatesSet.has(point.date)
+      );
+      if (hasRecentData) {
+        return true;
+      }
+
+      // For non-recent metrics, only include if they're not sparse
+      const metricDates = new Set(metric.data.map(point => point.date));
+      const dataCoverage = metricDates.size / totalPeriods;
+      return dataCoverage >= sparsenessThreshold;
+    });
+  }, [data, showAllMetrics, sortedDates]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -368,18 +429,6 @@ export function FinancialTable({
       </div>
     );
   }
-
-  // Get all unique dates from all metrics and sort them
-  const allDates = new Set<string>();
-  data.metrics.forEach(metric => {
-    metric.data.forEach(point => {
-      allDates.add(point.date);
-    });
-  });
-
-  const sortedDates = Array.from(allDates).sort(
-    (a, b) => new Date(b).getTime() - new Date(a).getTime()
-  );
 
   // Create a map from fiscal_period_end to public_url for quick lookup
   const filingUrlMap = new Map<string, string>();
@@ -449,8 +498,8 @@ export function FinancialTable({
     // Build a tree structure to avoid duplicate headers
     const tree = new Map<string, TreeNode>();
 
-    // Build the tree structure
-    data.metrics.forEach(metric => {
+    // Build the tree structure using filtered metrics
+    filteredMetrics.forEach(metric => {
       const abstracts = metric.abstracts || [];
 
       // Navigate to the deepest level and add the metric

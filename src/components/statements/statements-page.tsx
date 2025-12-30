@@ -11,6 +11,8 @@ import { FinancialTable } from "./financial-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface StatementsPageProps {
   ticker: string;
@@ -85,6 +87,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     "Cash Flow Statement": false,
   });
   const [filings, setFilings] = useState<FinancialFiling[]>([]);
+  const [showAllMetrics, setShowAllMetrics] = useState<boolean>(false);
 
   const statements: StatementType[] = useMemo(
     () => ["Income Statement", "Balance Sheet", "Cash Flow Statement"],
@@ -222,28 +225,42 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
           Financial Statements - {ticker}
         </h1>
 
-        {/* Granularity Toggle */}
-        <div className="flex gap-2 mb-4">
-          <Button
-            variant={granularity === "yearly" ? "default" : "outline"}
-            onClick={() => {
-              const newGranularity = "yearly";
-              setGranularity(newGranularity);
-              updateQueryParams(newGranularity, activeTab);
-            }}
-          >
-            Yearly
-          </Button>
-          <Button
-            variant={granularity === "quarterly" ? "default" : "outline"}
-            onClick={() => {
-              const newGranularity = "quarterly";
-              setGranularity(newGranularity);
-              updateQueryParams(newGranularity, activeTab);
-            }}
-          >
-            Quarterly
-          </Button>
+        {/* Granularity Toggle and Display Options */}
+        <div className="flex gap-4 items-center mb-4">
+          <div className="flex gap-2">
+            <Button
+              variant={granularity === "yearly" ? "default" : "outline"}
+              onClick={() => {
+                const newGranularity = "yearly";
+                setGranularity(newGranularity);
+                updateQueryParams(newGranularity, activeTab);
+              }}
+            >
+              Yearly
+            </Button>
+            <Button
+              variant={granularity === "quarterly" ? "default" : "outline"}
+              onClick={() => {
+                const newGranularity = "quarterly";
+                setGranularity(newGranularity);
+                updateQueryParams(newGranularity, activeTab);
+              }}
+            >
+              Quarterly
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 border-l pl-4">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="show-all-metrics"
+                checked={showAllMetrics}
+                onCheckedChange={setShowAllMetrics}
+              />
+              <Label htmlFor="show-all-metrics" className="cursor-pointer">
+                Display All Metrics
+              </Label>
+            </div>
+          </div>
         </div>
 
         {/* Tab Navigation */}
@@ -276,6 +293,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
                     filings={filings}
                     adminMode={adminMode}
                     statement={statement}
+                    showAllMetrics={showAllMetrics}
                   />
                 </CardContent>
               </Card>
