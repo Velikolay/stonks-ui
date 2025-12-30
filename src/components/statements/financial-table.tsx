@@ -391,7 +391,7 @@ export function FinancialTable({
     }
 
     // Consider recent periods (last 3 periods or last 2 years for yearly data)
-    const recentPeriodCount = data.granularity === "yearly" ? 2 : 3;
+    const recentPeriodCount = data.granularity === "yearly" ? 2 : 4;
     const recentDates = sortedDates.slice(0, recentPeriodCount);
     const recentDatesSet = new Set(recentDates);
 
