@@ -609,7 +609,7 @@ export function FinancialTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[300px]">Metric</TableHead>
+            <TableHead className="min-w-[280px]">Metric</TableHead>
             <TableHead className="w-[80px] text-center">Trend</TableHead>
             {sortedDates.map(date => {
               const filingUrl = getFilingUrl(date);
@@ -642,7 +642,7 @@ export function FinancialTable({
               return (
                 <TableRow key={`header-${index}`} className="bg-muted/50">
                   <TableCell
-                    className="font-semibold text-base py-3 whitespace-normal cursor-pointer hover:bg-muted/70"
+                    className="font-semibold text-base whitespace-normal cursor-pointer hover:bg-muted/70"
                     style={{
                       paddingLeft: `${item.level * 24 + 16}px`,
                       position: "relative",
@@ -653,10 +653,7 @@ export function FinancialTable({
                       item.abstractId && toggleAbstract(item.abstractId)
                     }
                   >
-                    <div
-                      style={{ maxWidth: "300px", wordWrap: "break-word" }}
-                      className="flex items-center gap-2"
-                    >
+                    <div className="flex gap-2">
                       <span
                         className={`text-sm transition-transform ${collapsedAbstracts.has(item.abstractId || "") ? "rotate-0" : "rotate-90"}`}
                       >
@@ -711,22 +708,21 @@ export function FinancialTable({
               return (
                 <TableRow key={`metric-${index}`}>
                   <TableCell
-                    className="font-medium"
-                    style={{ paddingLeft: `${item.level * 24 + 16}px` }}
+                    className="font-medium whitespace-normal"
+                    style={{
+                      paddingLeft: `${item.level * 24 + 16}px`,
+                    }}
                   >
-                    <div
-                      className="flex flex-col"
-                      style={{ maxWidth: "300px", wordWrap: "break-word" }}
-                    >
+                    <div className="flex flex-col">
                       <div className="flex items-center gap-2">
-                        <div>
+                        <span className="break-words">
                           {item.text}
                           {item.metric?.axis && (
                             <span className="text-sm text-muted-foreground ml-2">
                               ({item.metric.axis})
                             </span>
                           )}
-                        </div>
+                        </span>
                         {adminMode && item.concept && (
                           <div className="flex items-center gap-1">
                             {override ? (
