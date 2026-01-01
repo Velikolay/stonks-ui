@@ -123,6 +123,8 @@ const STATEMENT_TYPES: StatementType[] = [
   "Income Statement",
   "Balance Sheet",
   "Cash Flow Statement",
+  "Comprehensive Income",
+  "Statement of Equity",
 ];
 
 type SortableColumn =

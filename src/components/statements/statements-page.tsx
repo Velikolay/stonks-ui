@@ -13,15 +13,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { StatementType } from "@/lib/services/admin";
 
 interface StatementsPageProps {
   ticker: string;
 }
 
-type StatementType =
-  | "Income Statement"
-  | "Balance Sheet"
-  | "Cash Flow Statement";
 type Granularity = "yearly" | "quarterly";
 
 // Helper functions to convert between URL-friendly values and display values
@@ -30,6 +27,8 @@ const statementToUrlValue = (statement: StatementType): string => {
     "Income Statement": "income-statement",
     "Balance Sheet": "balance-sheet",
     "Cash Flow Statement": "cash-flow-statement",
+    "Comprehensive Income": "comprehensive-income",
+    "Statement of Equity": "statement-of-equity",
   };
   return mapping[statement];
 };
@@ -39,6 +38,8 @@ const urlValueToStatement = (value: string): StatementType | null => {
     "income-statement": "Income Statement",
     "balance-sheet": "Balance Sheet",
     "cash-flow-statement": "Cash Flow Statement",
+    "comprehensive-income": "Comprehensive Income",
+    "statement-of-equity": "Statement of Equity",
   };
   return mapping[value] || null;
 };
@@ -78,6 +79,8 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     "Income Statement": { yearly: null, quarterly: null },
     "Balance Sheet": { yearly: null, quarterly: null },
     "Cash Flow Statement": { yearly: null, quarterly: null },
+    "Comprehensive Income": { yearly: null, quarterly: null },
+    "Statement of Equity": { yearly: null, quarterly: null },
   });
   const [loading, setLoading] = useState<{
     [key in StatementType]: boolean;
@@ -85,12 +88,20 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     "Income Statement": false,
     "Balance Sheet": false,
     "Cash Flow Statement": false,
+    "Comprehensive Income": false,
+    "Statement of Equity": false,
   });
   const [filings, setFilings] = useState<FinancialFiling[]>([]);
   const [showAllMetrics, setShowAllMetrics] = useState<boolean>(false);
 
   const statements: StatementType[] = useMemo(
-    () => ["Income Statement", "Balance Sheet", "Cash Flow Statement"],
+    () => [
+      "Income Statement",
+      "Balance Sheet",
+      "Cash Flow Statement",
+      "Comprehensive Income",
+      "Statement of Equity",
+    ],
     []
   );
 
@@ -272,7 +283,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
             updateQueryParams(granularity, newActiveTab);
           }}
         >
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-5">
             {statements.map(statement => (
               <TabsTrigger key={statement} value={statement}>
                 {statement}

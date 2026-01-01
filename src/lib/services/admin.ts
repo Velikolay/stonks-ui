@@ -3,7 +3,9 @@ const API_BASE_URL = "http://localhost:8000";
 export type StatementType =
   | "Income Statement"
   | "Balance Sheet"
-  | "Cash Flow Statement";
+  | "Cash Flow Statement"
+  | "Comprehensive Income"
+  | "Statement of Equity";
 
 export interface ConceptNormalizationOverride {
   concept: string;
