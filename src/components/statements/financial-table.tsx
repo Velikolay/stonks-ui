@@ -609,7 +609,7 @@ export function FinancialTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="min-w-[280px]">Metric</TableHead>
+            <TableHead className="w-[300px]">Metric</TableHead>
             <TableHead className="w-[80px] text-center">Trend</TableHead>
             {sortedDates.map(date => {
               const filingUrl = getFilingUrl(date);
@@ -644,7 +644,7 @@ export function FinancialTable({
                   <TableCell
                     className="font-semibold text-base whitespace-normal cursor-pointer hover:bg-muted/70"
                     style={{
-                      paddingLeft: `${item.level * 24 + 16}px`,
+                      paddingLeft: `${item.level * 16 + 8}px`,
                       position: "relative",
                       zIndex: 1,
                     }}
@@ -655,7 +655,7 @@ export function FinancialTable({
                   >
                     <div className="flex gap-2">
                       <span
-                        className={`text-sm transition-transform ${collapsedAbstracts.has(item.abstractId || "") ? "rotate-0" : "rotate-90"}`}
+                        className={`text-sm transition-transform self-start ${collapsedAbstracts.has(item.abstractId || "") ? "rotate-0" : "rotate-90"}`}
                       >
                         ▶
                       </span>
@@ -708,21 +708,14 @@ export function FinancialTable({
               return (
                 <TableRow key={`metric-${index}`}>
                   <TableCell
-                    className="font-medium whitespace-normal"
+                    className="min-w-[300px] max-w-[300px] font-medium whitespace-normal"
                     style={{
-                      paddingLeft: `${item.level * 24 + 16}px`,
+                      paddingLeft: `${item.level * 16 + 8}px`,
                     }}
                   >
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-2">
-                        <span className="break-words">
-                          {item.text}
-                          {item.metric?.axis && (
-                            <span className="text-sm text-muted-foreground ml-2">
-                              ({item.metric.axis})
-                            </span>
-                          )}
-                        </span>
+                    <div className="flex flex-col break-words">
+                      <div className="flex items-center">
+                        <span>{item.text}</span>
                         {adminMode && item.concept && (
                           <div className="flex items-center gap-1">
                             {override ? (
