@@ -8,12 +8,14 @@ interface MiniTrendChartProps {
   data: FinancialDataPoint[];
   onClick?: () => void;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 export function MiniTrendChart({
   data,
   onClick,
   className,
+  style,
 }: MiniTrendChartProps) {
   if (!data || data.length === 0) {
     return (
@@ -104,7 +106,7 @@ export function MiniTrendChart({
     >
       <ReactECharts
         option={option}
-        style={{ width: "100%", height: "100%" }}
+        style={style}
         opts={{ renderer: "canvas" }}
       />
     </div>

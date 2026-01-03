@@ -584,24 +584,32 @@ export function FinancialTable({
     });
   };
 
-  // Check if an item should be visible (not collapsed)
-  const isItemVisible = (item: (typeof hierarchicalStructure)[0]) => {
-    if (item.type === "metric") {
-      // Check if any parent abstract is collapsed
-      let currentParentId = item.parentAbstractId;
-      while (currentParentId) {
-        if (collapsedAbstracts.has(currentParentId)) {
-          return false;
-        }
-        // Find the parent's parent
-        const parentItem = hierarchicalStructure.find(
-          h => h.abstractId === currentParentId
-        );
-        currentParentId = parentItem?.parentAbstractId;
-      }
-      return true;
+  // Build a lookup map from abstractId to item for O(1) parent lookups (optimized)
+  // Built once per render, then used for fast lookups
+  const abstractIdMap = new Map<string, (typeof hierarchicalStructure)[0]>();
+  hierarchicalStructure.forEach(item => {
+    if (item.abstractId) {
+      abstractIdMap.set(item.abstractId, item);
     }
-    return true; // Headers are always visible
+  });
+
+  // Check if an item should be hidden (for CSS display)
+  const isItemHidden = (item: (typeof hierarchicalStructure)[0]): boolean => {
+    if (item.type === "header") {
+      return false; // Headers are never hidden
+    }
+
+    // For metrics, check if any parent abstract is collapsed
+    let currentParentId = item.parentAbstractId;
+    while (currentParentId) {
+      if (collapsedAbstracts.has(currentParentId)) {
+        return true; // Hidden if any parent is collapsed
+      }
+      // Use the lookup map instead of find() for O(1) access
+      const parentItem = abstractIdMap.get(currentParentId);
+      currentParentId = parentItem?.parentAbstractId;
+    }
+    return false; // Visible
   };
 
   return (
@@ -634,13 +642,17 @@ export function FinancialTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {hierarchicalStructure.filter(isItemVisible).map((item, index) => {
+          {hierarchicalStructure.map((item, index) => {
+            const hidden = isItemHidden(item);
             if (item.type === "header") {
               const override = item.concept
                 ? getOverrideForConcept(item.concept)
                 : null;
               return (
-                <TableRow key={`header-${index}`} className="bg-muted/50">
+                <TableRow
+                  key={`header-${index}`}
+                  className={`bg-muted/50 ${hidden ? "hidden" : ""}`}
+                >
                   <TableCell
                     className="font-semibold text-base whitespace-normal cursor-pointer hover:bg-muted/70"
                     style={{
@@ -706,7 +718,10 @@ export function FinancialTable({
                 ? getOverrideForConcept(item.concept)
                 : null;
               return (
-                <TableRow key={`metric-${index}`}>
+                <TableRow
+                  key={`metric-${index}`}
+                  className={hidden ? "hidden" : ""}
+                >
                   <TableCell
                     className="min-w-[300px] max-w-[300px] font-medium whitespace-normal"
                     style={{
@@ -759,6 +774,7 @@ export function FinancialTable({
                         onClick={() =>
                           item.metric && handleChartClick(item.metric)
                         }
+                        style={{ width: "80px", height: "40px" }}
                       />
                     )}
                   </TableCell>
