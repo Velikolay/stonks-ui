@@ -9,8 +9,8 @@ import {
 import {
   AdminService,
   ConceptNormalizationOverride,
-  StatementType,
 } from "@/lib/services/admin";
+import { StatementType } from "@/lib/services/protocol";
 import {
   Table,
   TableBody,

@@ -1,8 +1,10 @@
+import { StatementType } from "@/lib/services/protocol";
+
 const API_BASE_URL = "http://localhost:8000";
 
 interface RawFinancialMetric {
   normalized_label: string;
-  statement: string;
+  statement: StatementType;
   count: number;
   axis?: string;
 }
@@ -10,7 +12,7 @@ interface RawFinancialMetric {
 export class FinancialMetric {
   id: string;
   normalized_label: string;
-  statement: string;
+  statement: StatementType;
   axis?: string;
   count: number;
 
@@ -43,7 +45,7 @@ export interface FinancialData {
 
 export interface StatementData {
   ticker: string;
-  statement: string;
+  statement: StatementType;
   granularity: "yearly" | "quarterly";
   metrics: Array<{
     normalized_label: string;
@@ -101,7 +103,7 @@ export class FinancialDataService {
     normalizedLabel: string,
     granularity: "yearly" | "quarterly",
     axis?: string,
-    statement?: string
+    statement?: StatementType
   ): Promise<FinancialData> {
     const url = new URL(`${API_BASE_URL}/financials/`);
     url.searchParams.set("ticker", ticker);
@@ -204,7 +206,7 @@ export class FinancialDataService {
 
   static async getStatementData(
     ticker: string,
-    statement: string,
+    statement: StatementType,
     granularity: "yearly" | "quarterly",
     debug?: boolean
   ): Promise<StatementData> {

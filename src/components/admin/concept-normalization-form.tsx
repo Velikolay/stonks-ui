@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { StatementType } from "@/lib/services/admin";
+import { StatementType, STATEMENT_TYPES } from "@/lib/services/protocol";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -11,14 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const STATEMENT_TYPES: StatementType[] = [
-  "Income Statement",
-  "Balance Sheet",
-  "Cash Flow Statement",
-  "Comprehensive Income",
-  "Statement of Equity",
-];
 
 export type WeightOption = "__none__" | "-1" | "1";
 export type UnitOption = "__none__" | "usd" | "usdPerShare";

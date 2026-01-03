@@ -21,6 +21,7 @@ import {
   FinancialDataService,
   FinancialMetric,
 } from "@/lib/services/financial-data";
+import { STATEMENT_TYPES } from "@/lib/services/protocol";
 
 interface FinancialDataPoint {
   date: string;
@@ -154,13 +155,6 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
     {} as Record<string, FinancialMetric[]>
   );
 
-  // Define statement order (most common financial statements first)
-  const statementOrder = [
-    "Income Statement",
-    "Balance Sheet",
-    "Cash Flow Statement",
-  ];
-
   // Sort metrics within each group by normalized_label
   Object.keys(groupedMetrics).forEach(statement => {
     groupedMetrics[statement].sort((a, b) =>
@@ -214,35 +208,33 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {availableMetrics.length > 0 ? (
-                      statementOrder
-                        .filter(
-                          statement => groupedMetrics[statement]?.length > 0
-                        )
-                        .map(statement => (
-                          <div key={statement}>
-                            <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">
-                              {statement}
-                            </div>
-                            {groupedMetrics[statement].map((metric, index) => {
-                              const displayLabel = metric.axis
-                                ? `${metric.normalized_label} (${metric.axis})`
-                                : metric.normalized_label;
-                              const uniqueKey = metric.axis
-                                ? `${metric.normalized_label}-${metric.axis}-${index}`
-                                : `${metric.normalized_label}-${index}`;
-
-                              return (
-                                <SelectItem
-                                  key={uniqueKey}
-                                  value={metric.id}
-                                  className="pl-6"
-                                >
-                                  {displayLabel} ({metric.count})
-                                </SelectItem>
-                              );
-                            })}
+                      STATEMENT_TYPES.filter(
+                        statement => groupedMetrics[statement]?.length > 0
+                      ).map(statement => (
+                        <div key={statement}>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800">
+                            {statement}
                           </div>
-                        ))
+                          {groupedMetrics[statement].map((metric, index) => {
+                            const displayLabel = metric.axis
+                              ? `${metric.normalized_label} (${metric.axis})`
+                              : metric.normalized_label;
+                            const uniqueKey = metric.axis
+                              ? `${metric.normalized_label}-${metric.axis}-${index}`
+                              : `${metric.normalized_label}-${index}`;
+
+                            return (
+                              <SelectItem
+                                key={uniqueKey}
+                                value={metric.id}
+                                className="pl-6"
+                              >
+                                {displayLabel} ({metric.count})
+                              </SelectItem>
+                            );
+                          })}
+                        </div>
+                      ))
                     ) : (
                       <SelectItem value="no-metrics" disabled>
                         No metrics available

@@ -1,11 +1,6 @@
-const API_BASE_URL = "http://localhost:8000";
+import { StatementType } from "@/lib/services/protocol";
 
-export type StatementType =
-  | "Income Statement"
-  | "Balance Sheet"
-  | "Cash Flow Statement"
-  | "Comprehensive Income"
-  | "Statement of Equity";
+const API_BASE_URL = "http://localhost:8000";
 
 export interface ConceptNormalizationOverride {
   concept: string;

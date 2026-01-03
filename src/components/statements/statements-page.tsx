@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { StatementType } from "@/lib/services/admin";
+import { StatementType, STATEMENT_TYPES } from "@/lib/services/protocol";
 
 interface StatementsPageProps {
   ticker: string;
@@ -94,16 +94,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
   const [filings, setFilings] = useState<FinancialFiling[]>([]);
   const [showAllMetrics, setShowAllMetrics] = useState<boolean>(false);
 
-  const statements: StatementType[] = useMemo(
-    () => [
-      "Income Statement",
-      "Balance Sheet",
-      "Cash Flow Statement",
-      "Comprehensive Income",
-      "Statement of Equity",
-    ],
-    []
-  );
+  const statements: StatementType[] = useMemo(() => STATEMENT_TYPES, []);
 
   // Update URL query parameters when state changes
   // Use window.history.pushState to create history entries (back button will work)

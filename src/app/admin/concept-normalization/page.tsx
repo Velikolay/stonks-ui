@@ -5,9 +5,9 @@ import Link from "next/link";
 import {
   AdminService,
   ConceptNormalizationOverride,
-  StatementType,
   ImportSummary,
 } from "@/lib/services/admin";
+import { StatementType, STATEMENT_TYPES } from "@/lib/services/protocol";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -118,14 +118,6 @@ const OverrideDialogComponent = React.memo(function OverrideDialog({
     </Dialog>
   );
 });
-
-const STATEMENT_TYPES: StatementType[] = [
-  "Income Statement",
-  "Balance Sheet",
-  "Cash Flow Statement",
-  "Comprehensive Income",
-  "Statement of Equity",
-];
 
 type SortableColumn =
   | "concept"
@@ -240,7 +232,7 @@ export default function ConceptNormalizationPage() {
   const handleCreate = () => {
     setFormData({
       concept: "",
-      statement: "Income Statement",
+      statement: "Income Statement" as StatementType,
       normalized_label: "",
       is_abstract: false,
       parent_concept: "",
