@@ -42,6 +42,22 @@ import {
 const PARENT_PLACEHOLDER = "e.g., us-gaap:OperatingExpenses";
 const ABSTRACT_PLACEHOLDER = "e.g., us-gaap:OperatingExpensesAbstract";
 
+// Format value for display - pure function moved outside to prevent recreation
+const formatValue = (value: number) => {
+  if (value === 0) return "—";
+
+  const absValue = Math.abs(value);
+  if (absValue >= 1e9) {
+    return `${(value / 1e9).toFixed(1)}B`;
+  } else if (absValue >= 1e6) {
+    return `${(value / 1e6).toFixed(1)}M`;
+  } else if (absValue >= 1e3) {
+    return `${(value / 1e3).toFixed(1)}K`;
+  } else {
+    return value.toFixed(2);
+  }
+};
+
 // Extract OverrideDialog as a separate component to prevent recreation
 interface OverrideDialogProps {
   open: boolean;
@@ -101,6 +117,199 @@ const OverrideDialogComponent = React.memo(function OverrideDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+});
+
+interface HeaderRowProps {
+  item: {
+    abstractId?: string;
+    text: string;
+    level: number;
+    concept?: string;
+  };
+  sortedDates: string[];
+  collapsedAbstracts: Set<string>;
+  adminMode: boolean;
+  override: ConceptNormalizationOverride | null;
+  onToggleAbstract: (abstractId: string) => void;
+  onEditClick: (override: ConceptNormalizationOverride) => void;
+  onCreateClick: (concept: string, normalizedLabel: string) => void;
+}
+
+const HeaderRow = React.memo(function HeaderRow({
+  item,
+  sortedDates,
+  collapsedAbstracts,
+  adminMode,
+  override,
+  onToggleAbstract,
+  onEditClick,
+  onCreateClick,
+}: HeaderRowProps) {
+  return (
+    <TableRow className="bg-muted/50">
+      <TableCell
+        className="font-semibold text-base whitespace-normal cursor-pointer hover:bg-muted/70"
+        style={{
+          paddingLeft: `${item.level * 16 + 8}px`,
+          position: "relative",
+          zIndex: 1,
+        }}
+        colSpan={sortedDates.length + 2}
+        onClick={() => item.abstractId && onToggleAbstract(item.abstractId)}
+      >
+        <div className="flex gap-2">
+          <span
+            className={`text-sm transition-transform self-start ${collapsedAbstracts.has(item.abstractId || "") ? "rotate-0" : "rotate-90"}`}
+          >
+            ▶
+          </span>
+          <div className="flex flex-col flex-1">
+            <div className="flex items-center gap-2">
+              <span>{item.text}</span>
+              {adminMode && item.concept && (
+                <div
+                  className="flex items-center gap-1"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {override ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => onEditClick(override)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => onCreateClick(item.concept!, item.text)}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            {adminMode && item.concept && (
+              <span className="text-xs text-muted-foreground/60 font-normal mt-0.5">
+                {item.concept}
+              </span>
+            )}
+          </div>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+});
+
+interface MetricRowProps {
+  item: {
+    text: string;
+    level: number;
+    concept?: string;
+    metric?: {
+      normalized_label: string;
+      data: Array<{
+        date: string;
+        value: number;
+      }>;
+    };
+  };
+  sortedDates: string[];
+  adminMode: boolean;
+  override: ConceptNormalizationOverride | null;
+  formatValue: (value: number) => string;
+  onEditClick: (override: ConceptNormalizationOverride) => void;
+  onCreateClick: (concept: string, normalizedLabel: string) => void;
+  onChartClick: (metric: {
+    normalized_label: string;
+    axis?: string;
+    data: Array<{
+      date: string;
+      value: number;
+    }>;
+  }) => void;
+}
+
+const MetricRow = React.memo(function MetricRow({
+  item,
+  sortedDates,
+  adminMode,
+  override,
+  formatValue,
+  onEditClick,
+  onCreateClick,
+  onChartClick,
+}: MetricRowProps) {
+  return (
+    <TableRow>
+      <TableCell
+        className="min-w-[300px] max-w-[300px] font-medium whitespace-normal"
+        style={{
+          paddingLeft: `${item.level * 16 + 8}px`,
+        }}
+      >
+        <div className="flex flex-col break-words">
+          <div className="flex items-center">
+            <span>{item.text}</span>
+            {adminMode && item.concept && (
+              <div className="flex items-center gap-1">
+                {override ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => onEditClick(override)}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() =>
+                      onCreateClick(
+                        item.concept!,
+                        item.metric?.normalized_label || item.text
+                      )
+                    }
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+          {adminMode && item.concept && (
+            <span className="text-xs text-muted-foreground/60 font-normal mt-0.5">
+              {item.concept}
+            </span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-center">
+        {item.metric && (
+          <MiniTrendChart
+            data={item.metric.data}
+            onClick={() => item.metric && onChartClick(item.metric)}
+          />
+        )}
+      </TableCell>
+      {sortedDates.map(date => {
+        const dataPoint = item.metric?.data.find(d => d.date === date);
+        const value = dataPoint ? dataPoint.value : 0;
+        return (
+          <TableCell key={date} className="text-right">
+            {formatValue(value)}
+          </TableCell>
+        );
+      })}
+    </TableRow>
   );
 });
 
@@ -202,59 +411,62 @@ export function FinancialTable({
   };
 
   // Handle create button click
-  const handleCreateClick = (
-    concept: string | undefined,
-    normalizedLabel: string
-  ) => {
-    if (!concept || !statement) return;
-    setEditingConcept({ concept, normalizedLabel });
-    setFormData({
-      concept,
-      statement,
-      normalized_label: normalizedLabel,
-      is_abstract: false,
-      parent_concept: "",
-      abstract_concept: "",
-      weight: "1" as WeightOption,
-      unit: "usd" as UnitOption,
-      description: "",
-    });
-    setIsCreateDialogOpen(true);
-  };
+  const handleCreateClick = useCallback(
+    (concept: string | undefined, normalizedLabel: string) => {
+      if (!concept || !statement) return;
+      setEditingConcept({ concept, normalizedLabel });
+      setFormData({
+        concept,
+        statement,
+        normalized_label: normalizedLabel,
+        is_abstract: false,
+        parent_concept: "",
+        abstract_concept: "",
+        weight: "1" as WeightOption,
+        unit: "usd" as UnitOption,
+        description: "",
+      });
+      setIsCreateDialogOpen(true);
+    },
+    [statement]
+  );
 
   // Handle edit button click
-  const handleEditClick = (override: ConceptNormalizationOverride) => {
-    setEditingOverride(override);
-    const isAbstract = override.is_abstract;
-    setFormData({
-      concept: override.concept,
-      statement: override.statement,
-      normalized_label: override.normalized_label,
-      is_abstract: isAbstract,
-      parent_concept: override.parent_concept || "",
-      abstract_concept: override.abstract_concept || "",
-      weight: (isAbstract
-        ? "__none__"
-        : override.weight === -1
-          ? "-1"
-          : override.weight === 1
-            ? "1"
-            : override.weight === null || override.weight === undefined
+  const handleEditClick = useCallback(
+    (override: ConceptNormalizationOverride) => {
+      setEditingOverride(override);
+      const isAbstract = override.is_abstract;
+      setFormData({
+        concept: override.concept,
+        statement: override.statement,
+        normalized_label: override.normalized_label,
+        is_abstract: isAbstract,
+        parent_concept: override.parent_concept || "",
+        abstract_concept: override.abstract_concept || "",
+        weight: (isAbstract
+          ? "__none__"
+          : override.weight === -1
+            ? "-1"
+            : override.weight === 1
               ? "1"
-              : "__none__") as WeightOption,
-      unit: (isAbstract
-        ? "__none__"
-        : override.unit === "usd" || override.unit === "usdPerShare"
-          ? override.unit
-          : override.unit === null ||
-              override.unit === undefined ||
-              override.unit === ""
-            ? "usd"
-            : "__none__") as UnitOption,
-      description: override.description || "",
-    });
-    setIsEditDialogOpen(true);
-  };
+              : override.weight === null || override.weight === undefined
+                ? "1"
+                : "__none__") as WeightOption,
+        unit: (isAbstract
+          ? "__none__"
+          : override.unit === "usd" || override.unit === "usdPerShare"
+            ? override.unit
+            : override.unit === null ||
+                override.unit === undefined ||
+                override.unit === ""
+              ? "usd"
+              : "__none__") as UnitOption,
+        description: override.description || "",
+      });
+      setIsEditDialogOpen(true);
+    },
+    []
+  );
 
   // Handle create submit
   const handleCreateSubmit = async () => {
@@ -316,39 +528,42 @@ export function FinancialTable({
     }
   };
 
-  const handleChartClick = async (metric: {
-    normalized_label: string;
-    axis?: string;
-    data: Array<{
-      date: string;
-      value: number;
-    }>;
-  }) => {
-    if (!data) return;
+  const handleChartClick = useCallback(
+    async (metric: {
+      normalized_label: string;
+      axis?: string;
+      data: Array<{
+        date: string;
+        value: number;
+      }>;
+    }) => {
+      if (!data) return;
 
-    setSelectedMetric({
-      metric: metric.normalized_label,
-      axis: metric.axis,
-      ticker: data.ticker,
-      granularity: data.granularity,
-    });
+      setSelectedMetric({
+        metric: metric.normalized_label,
+        axis: metric.axis,
+        ticker: data.ticker,
+        granularity: data.granularity,
+      });
 
-    setChartLoading(true);
-    try {
-      const financialData = await FinancialDataService.getFinancialData(
-        data.ticker,
-        metric.normalized_label,
-        data.granularity,
-        metric.axis,
-        data.statement
-      );
-      setChartData(financialData);
-    } catch {
-      // Handle error silently or show user-friendly message
-    } finally {
-      setChartLoading(false);
-    }
-  };
+      setChartLoading(true);
+      try {
+        const financialData = await FinancialDataService.getFinancialData(
+          data.ticker,
+          metric.normalized_label,
+          data.granularity,
+          metric.axis,
+          data.statement
+        );
+        setChartData(financialData);
+      } catch {
+        // Handle error silently or show user-friendly message
+      } finally {
+        setChartLoading(false);
+      }
+    },
+    [data]
+  );
 
   const handleCloseDialog = () => {
     setSelectedMetric(null);
@@ -414,6 +629,19 @@ export function FinancialTable({
     });
   }, [data, showAllMetrics, sortedDates]);
 
+  // Handle abstract collapse/expand - must be before early returns
+  const toggleAbstract = useCallback((abstractId: string) => {
+    setCollapsedAbstracts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(abstractId)) {
+        newSet.delete(abstractId);
+      } else {
+        newSet.add(abstractId);
+      }
+      return newSet;
+    });
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -458,22 +686,6 @@ export function FinancialTable({
       year: "numeric",
       month: "short",
     });
-  };
-
-  // Format value for display
-  const formatValue = (value: number) => {
-    if (value === 0) return "—";
-
-    const absValue = Math.abs(value);
-    if (absValue >= 1e9) {
-      return `${(value / 1e9).toFixed(1)}B`;
-    } else if (absValue >= 1e6) {
-      return `${(value / 1e6).toFixed(1)}M`;
-    } else if (absValue >= 1e3) {
-      return `${(value / 1e3).toFixed(1)}K`;
-    } else {
-      return value.toFixed(2);
-    }
   };
 
   // Create a hierarchical structure from the abstracts array
@@ -571,19 +783,6 @@ export function FinancialTable({
 
   const hierarchicalStructure = createHierarchicalStructure();
 
-  // Handle abstract collapse/expand
-  const toggleAbstract = (abstractId: string) => {
-    setCollapsedAbstracts(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(abstractId)) {
-        newSet.delete(abstractId);
-      } else {
-        newSet.add(abstractId);
-      }
-      return newSet;
-    });
-  };
-
   // Check if an item should be visible (not collapsed)
   const isItemVisible = (item: (typeof hierarchicalStructure)[0]) => {
     if (item.type === "metric") {
@@ -634,146 +833,43 @@ export function FinancialTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {hierarchicalStructure.filter(isItemVisible).map((item, index) => {
+          {hierarchicalStructure.filter(isItemVisible).map(item => {
             if (item.type === "header") {
               const override = item.concept
                 ? getOverrideForConcept(item.concept)
                 : null;
               return (
-                <TableRow key={`header-${index}`} className="bg-muted/50">
-                  <TableCell
-                    className="font-semibold text-base whitespace-normal cursor-pointer hover:bg-muted/70"
-                    style={{
-                      paddingLeft: `${item.level * 16 + 8}px`,
-                      position: "relative",
-                      zIndex: 1,
-                    }}
-                    colSpan={sortedDates.length + 2}
-                    onClick={() =>
-                      item.abstractId && toggleAbstract(item.abstractId)
-                    }
-                  >
-                    <div className="flex gap-2">
-                      <span
-                        className={`text-sm transition-transform self-start ${collapsedAbstracts.has(item.abstractId || "") ? "rotate-0" : "rotate-90"}`}
-                      >
-                        ▶
-                      </span>
-                      <div className="flex flex-col flex-1">
-                        <div className="flex items-center gap-2">
-                          <span>{item.text}</span>
-                          {adminMode && item.concept && (
-                            <div
-                              className="flex items-center gap-1"
-                              onClick={e => e.stopPropagation()}
-                            >
-                              {override ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0"
-                                  onClick={() => handleEditClick(override)}
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0"
-                                  onClick={() =>
-                                    handleCreateClick(item.concept, item.text)
-                                  }
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        {adminMode && item.concept && (
-                          <span className="text-xs text-muted-foreground/60 font-normal mt-0.5">
-                            {item.concept}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <HeaderRow
+                  key={`header-${item.abstractId}`}
+                  item={item}
+                  sortedDates={sortedDates}
+                  collapsedAbstracts={collapsedAbstracts}
+                  adminMode={adminMode}
+                  override={override}
+                  onToggleAbstract={toggleAbstract}
+                  onEditClick={handleEditClick}
+                  onCreateClick={handleCreateClick}
+                />
               );
             } else {
               const override = item.concept
                 ? getOverrideForConcept(item.concept)
                 : null;
+              // Use concept as key, fallback to normalized_label if concept is not available
+              const stableKey =
+                item.concept || item.metric?.normalized_label || item.text;
               return (
-                <TableRow key={`metric-${index}`}>
-                  <TableCell
-                    className="min-w-[300px] max-w-[300px] font-medium whitespace-normal"
-                    style={{
-                      paddingLeft: `${item.level * 16 + 8}px`,
-                    }}
-                  >
-                    <div className="flex flex-col break-words">
-                      <div className="flex items-center">
-                        <span>{item.text}</span>
-                        {adminMode && item.concept && (
-                          <div className="flex items-center gap-1">
-                            {override ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={() => handleEditClick(override)}
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={() =>
-                                  handleCreateClick(
-                                    item.concept,
-                                    item.metric?.normalized_label || item.text
-                                  )
-                                }
-                              >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {adminMode && item.concept && (
-                        <span className="text-xs text-muted-foreground/60 font-normal mt-0.5">
-                          {item.concept}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {item.metric && (
-                      <MiniTrendChart
-                        data={item.metric.data}
-                        onClick={() =>
-                          item.metric && handleChartClick(item.metric)
-                        }
-                      />
-                    )}
-                  </TableCell>
-                  {sortedDates.map(date => {
-                    const dataPoint = item.metric?.data.find(
-                      d => d.date === date
-                    );
-                    const value = dataPoint ? dataPoint.value : 0;
-                    return (
-                      <TableCell key={date} className="text-right">
-                        {formatValue(value)}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
+                <MetricRow
+                  key={`metric-${stableKey}`}
+                  item={item}
+                  sortedDates={sortedDates}
+                  adminMode={adminMode}
+                  override={override}
+                  formatValue={formatValue}
+                  onEditClick={handleEditClick}
+                  onCreateClick={handleCreateClick}
+                  onChartClick={handleChartClick}
+                />
               );
             }
           })}
