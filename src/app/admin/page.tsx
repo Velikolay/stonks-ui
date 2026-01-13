@@ -40,6 +40,21 @@ export default function AdminPage() {
                 </Link>
               </CardContent>
             </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Dimension Normalization</CardTitle>
+                <CardDescription>
+                  Manage dimension normalization overrides. Map dimension axes
+                  and members to normalized labels for better data organization
+                  and reporting.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href="/admin/dimension-normalization">
+                  <Button>Manage Dimension Normalization</Button>
+                </Link>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Navigation */}

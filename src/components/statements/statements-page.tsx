@@ -276,7 +276,11 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
         >
           <TabsList className="flex w-full flex-wrap gap-2 h-auto">
             {statements.map(statement => (
-              <TabsTrigger key={statement} value={statement} className="flex-1 min-w-[180px]">
+              <TabsTrigger
+                key={statement}
+                value={statement}
+                className="flex-1 min-w-[180px]"
+              >
                 {statement}
               </TabsTrigger>
             ))}
