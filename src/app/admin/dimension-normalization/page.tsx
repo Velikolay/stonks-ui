@@ -609,10 +609,10 @@ export default function DimensionNormalizationPage() {
                         <TableRow
                           key={`${override.axis}-${override.member}-${override.member_label}-${index}`}
                         >
-                          <TableCell className="font-mono text-xs max-w-[300px] break-words">
+                          <TableCell className="font-mono text-xs max-w-[300px] break-words whitespace-normal">
                             {override.axis}
                           </TableCell>
-                          <TableCell className="font-mono text-xs max-w-[300px] break-words">
+                          <TableCell className="font-mono text-xs max-w-[300px] break-words whitespace-normal">
                             {override.member === "*" ? (
                               <span className="text-muted-foreground italic">
                                 {override.member}
@@ -621,7 +621,7 @@ export default function DimensionNormalizationPage() {
                               override.member
                             )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="break-words whitespace-normal">
                             {override.member_label === "*" ? (
                               <span className="text-muted-foreground italic">
                                 {override.member_label}
@@ -630,15 +630,15 @@ export default function DimensionNormalizationPage() {
                               override.member_label
                             )}
                           </TableCell>
-                          <TableCell className="font-medium">
+                          <TableCell className="font-medium break-words whitespace-normal">
                             {override.normalized_axis_label}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="break-words whitespace-normal">
                             {override.normalized_member_label || (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="break-words whitespace-normal">
                             {override.tags && override.tags.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
                                 {override.tags.map((tag, idx) => (
@@ -654,14 +654,14 @@ export default function DimensionNormalizationPage() {
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
+                          <TableCell className="text-sm text-muted-foreground whitespace-normal">
                             {override.updated_at ? (
                               new Date(override.updated_at).toLocaleString()
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right whitespace-normal">
                             <div className="flex justify-end gap-2">
                               <Button
                                 variant="ghost"

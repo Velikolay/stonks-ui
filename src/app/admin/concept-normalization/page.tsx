@@ -713,14 +713,16 @@ export default function ConceptNormalizationPage() {
                         <TableRow
                           key={`${override.concept}-${override.statement}-${index}`}
                         >
-                          <TableCell className="font-mono text-xs max-w-[300px] break-words">
+                          <TableCell className="font-mono text-xs max-w-[300px] break-words whitespace-normal">
                             {override.concept}
                           </TableCell>
-                          <TableCell>{override.statement}</TableCell>
-                          <TableCell className="font-medium">
+                          <TableCell className="whitespace-normal">
+                            {override.statement}
+                          </TableCell>
+                          <TableCell className="font-medium whitespace-normal break-words">
                             {override.normalized_label}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="whitespace-normal">
                             {override.is_abstract ? (
                               <span className="text-green-600 dark:text-green-400">
                                 Yes
@@ -729,17 +731,17 @@ export default function ConceptNormalizationPage() {
                               <span className="text-muted-foreground">No</span>
                             )}
                           </TableCell>
-                          <TableCell className="font-mono text-xs max-w-[300px] break-words">
+                          <TableCell className="font-mono text-xs max-w-[300px] break-words whitespace-normal">
                             {override.parent_concept || (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell className="font-mono text-xs max-w-[300px] break-words">
+                          <TableCell className="font-mono text-xs max-w-[300px] break-words whitespace-normal">
                             {override.abstract_concept || (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-right tabular-nums">
+                          <TableCell className="text-right tabular-nums whitespace-normal">
                             {override.weight === null ||
                             override.weight === undefined ? (
                               <span className="text-muted-foreground">—</span>
@@ -747,24 +749,24 @@ export default function ConceptNormalizationPage() {
                               override.weight
                             )}
                           </TableCell>
-                          <TableCell className="font-mono text-xs max-w-[140px] break-words">
+                          <TableCell className="font-mono text-xs max-w-[140px] break-words whitespace-normal">
                             {override.unit || (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell className="max-w-xs truncate">
+                          <TableCell className="max-w-xs break-words whitespace-normal">
                             {override.description || (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
+                          <TableCell className="text-sm text-muted-foreground whitespace-normal">
                             {override.updated_at ? (
                               new Date(override.updated_at).toLocaleString()
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right whitespace-normal">
                             <div className="flex justify-end gap-2">
                               <Button
                                 variant="ghost"
