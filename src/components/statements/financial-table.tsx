@@ -335,7 +335,12 @@ export function FinancialTable({
     axis?: string;
     ticker: string;
     granularity: "yearly" | "quarterly";
+    statement?: StatementType;
   } | null>(null);
+  const [availableDimensions, setAvailableDimensions] = useState<string[]>([]);
+  const [selectedDimension, setSelectedDimension] = useState<string | null>(
+    null
+  );
   const [chartData, setChartData] = useState<{
     ticker: string;
     metric: string;
@@ -544,7 +549,37 @@ export function FinancialTable({
         axis: metric.axis,
         ticker: data.ticker,
         granularity: data.granularity,
+        statement: data.statement,
       });
+
+      // Fetch available metrics to extract dimensions
+      try {
+        const metrics = await FinancialDataService.getAvailableMetrics(
+          data.ticker,
+          data.granularity
+        );
+
+        // Find all metrics with the same normalized_label and statement
+        const matchingMetrics = metrics.filter(
+          m =>
+            m.normalized_label === metric.normalized_label &&
+            m.statement === data.statement
+        );
+
+        // Extract unique axes/dimensions
+        const dimensions = matchingMetrics
+          .map(m => m.axis)
+          .filter((axis): axis is string => !!axis && axis.trim() !== "")
+          .filter((axis, index, self) => self.indexOf(axis) === index)
+          .sort();
+
+        setAvailableDimensions(dimensions);
+        setSelectedDimension(dimensions.length > 0 ? dimensions[0] : null);
+      } catch {
+        // Handle error silently
+        setAvailableDimensions([]);
+        setSelectedDimension(null);
+      }
 
       setChartLoading(true);
       try {
@@ -565,9 +600,38 @@ export function FinancialTable({
     [data]
   );
 
+  // Fetch chart data when dimension changes
+  useEffect(() => {
+    const fetchChartData = async () => {
+      if (!selectedMetric || !data) return;
+
+      setChartLoading(true);
+      try {
+        const financialData = await FinancialDataService.getFinancialData(
+          selectedMetric.ticker,
+          selectedMetric.metric,
+          selectedMetric.granularity,
+          selectedDimension || undefined,
+          selectedMetric.statement
+        );
+        setChartData(financialData);
+      } catch {
+        // Handle error silently
+      } finally {
+        setChartLoading(false);
+      }
+    };
+
+    if (selectedMetric) {
+      fetchChartData();
+    }
+  }, [selectedMetric, selectedDimension, data]);
+
   const handleCloseDialog = () => {
     setSelectedMetric(null);
     setChartData(null);
+    setAvailableDimensions([]);
+    setSelectedDimension(null);
   };
 
   // Get all unique dates from all metrics for table headers
@@ -879,12 +943,16 @@ export function FinancialTable({
       <Dialog open={!!selectedMetric} onOpenChange={handleCloseDialog}>
         <DialogContent className="!max-w-[95vw] w-full">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="sr-only">
               {selectedMetric?.metric}
-              {selectedMetric?.axis && ` (${selectedMetric.axis})`}
+              {selectedDimension
+                ? ` (${selectedDimension})`
+                : selectedMetric?.axis
+                  ? ` (${selectedMetric.axis})`
+                  : ""}
             </DialogTitle>
           </DialogHeader>
-          <div className="h-[600px]">
+          <div className="h-[600px] mt-6">
             {chartLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-lg">Loading chart...</div>
@@ -896,6 +964,10 @@ export function FinancialTable({
                 onSeriesChange={setSelectedSeries}
                 showGrowthLine={showGrowthLine}
                 onGrowthLineToggle={setShowGrowthLine}
+                title={`${selectedMetric?.metric}${selectedDimension ? ` (${selectedDimension})` : selectedMetric?.axis ? ` (${selectedMetric.axis})` : ""}`}
+                availableDimensions={availableDimensions}
+                selectedDimension={selectedDimension}
+                onDimensionChange={setSelectedDimension}
               />
             ) : null}
           </div>

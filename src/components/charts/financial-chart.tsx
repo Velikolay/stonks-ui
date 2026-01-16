@@ -2,6 +2,13 @@
 
 import ReactECharts from "echarts-for-react";
 import { FinancialData } from "@/lib/services/financial-data";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface FinancialChartProps {
   data: FinancialData;
@@ -9,6 +16,11 @@ interface FinancialChartProps {
   onSeriesChange?: (selectedSeries: string[]) => void;
   showGrowthLine?: boolean;
   onGrowthLineToggle?: (show: boolean) => void;
+  title?: string;
+  description?: string;
+  availableDimensions?: string[];
+  selectedDimension?: string | null;
+  onDimensionChange?: (dimension: string | null) => void;
 }
 
 export function FinancialChart({
@@ -17,6 +29,11 @@ export function FinancialChart({
   onSeriesChange,
   showGrowthLine = false,
   onGrowthLineToggle,
+  title,
+  description,
+  availableDimensions = [],
+  selectedDimension = null,
+  onDimensionChange,
 }: FinancialChartProps) {
   // Format the value for display in tooltip
   const formatValue = (value: number) => {
@@ -481,15 +498,60 @@ export function FinancialChart({
   };
 
   return (
-    <div className="w-full h-96">
-      <ReactECharts
-        option={option}
-        style={{ height: "100%", width: "100%" }}
-        opts={{ renderer: "canvas" }}
-        onEvents={{
-          legendselectchanged: handleLegendClick,
-        }}
-      />
+    <div className="w-full">
+      {/* Header */}
+      {(title ||
+        description ||
+        (availableDimensions && availableDimensions.length > 0)) && (
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            {title && (
+              <h3 className="text-lg font-semibold leading-none mb-1.5">
+                {title}
+              </h3>
+            )}
+            {description && (
+              <p className="text-sm text-muted-foreground">{description}</p>
+            )}
+          </div>
+          {availableDimensions && availableDimensions.length > 0 && (
+            <Select
+              value={selectedDimension || "all"}
+              onValueChange={value => {
+                if (onDimensionChange) {
+                  onDimensionChange(value === "all" ? null : value);
+                }
+              }}
+              disabled={!onDimensionChange}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Dimensions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-muted-foreground">
+                  Dimensions
+                </SelectItem>
+                {availableDimensions.map(dimension => (
+                  <SelectItem key={dimension} value={dimension}>
+                    {dimension}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      )}
+      {/* Chart */}
+      <div className="w-full h-96 mt-6">
+        <ReactECharts
+          option={option}
+          style={{ height: "100%", width: "100%" }}
+          opts={{ renderer: "canvas" }}
+          onEvents={{
+            legendselectchanged: handleLegendClick,
+          }}
+        />
+      </div>
     </div>
   );
 }

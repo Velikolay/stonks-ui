@@ -45,10 +45,15 @@ interface ChartsPageProps {
 }
 
 export function ChartsPage({ ticker }: ChartsPageProps) {
+  const [allMetrics, setAllMetrics] = useState<FinancialMetric[]>([]);
   const [availableMetrics, setAvailableMetrics] = useState<FinancialMetric[]>(
     []
   );
   const [selectedMetric, setSelectedMetric] = useState<FinancialMetric | null>(
+    null
+  );
+  const [availableDimensions, setAvailableDimensions] = useState<string[]>([]);
+  const [selectedDimension, setSelectedDimension] = useState<string | null>(
     null
   );
   const [granularity, setGranularity] = useState<"yearly" | "quarterly">(
@@ -73,23 +78,24 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
           granularity
         );
 
+        // Store all metrics for dimension extraction
+        const filteredMetrics = metrics.filter(
+          metric =>
+            metric.normalized_label && metric.normalized_label.trim() !== ""
+        );
+        setAllMetrics(filteredMetrics);
+
         // Remove duplicates and filter out empty normalized_labels
-        // Consider both normalized_label and axis for uniqueness
-        const uniqueMetrics = metrics
-          .filter(
-            (metric, index, self) =>
-              index ===
-              self.findIndex(
-                m =>
-                  m.normalized_label === metric.normalized_label &&
-                  m.statement === metric.statement &&
-                  (m.axis || null) === (metric.axis || null)
-              )
-          )
-          .filter(
-            metric =>
-              metric.normalized_label && metric.normalized_label.trim() !== ""
-          );
+        // Consider normalized_label and statement for uniqueness (for display in selector)
+        const uniqueMetrics = filteredMetrics.filter(
+          (metric, index, self) =>
+            index ===
+            self.findIndex(
+              m =>
+                m.normalized_label === metric.normalized_label &&
+                m.statement === metric.statement
+            )
+        );
 
         setAvailableMetrics(uniqueMetrics);
 
@@ -108,7 +114,34 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
     fetchMetrics();
   }, [ticker, granularity, selectedMetric]);
 
-  // Fetch financial data when metric or granularity changes
+  // Extract available dimensions when metric changes
+  useEffect(() => {
+    if (!selectedMetric) {
+      setAvailableDimensions([]);
+      setSelectedDimension(null);
+      return;
+    }
+
+    // Find all metrics with the same normalized_label and statement
+    const matchingMetrics = allMetrics.filter(
+      m =>
+        m.normalized_label === selectedMetric.normalized_label &&
+        m.statement === selectedMetric.statement
+    );
+
+    // Extract unique axes/dimensions
+    const dimensions = matchingMetrics
+      .map(m => m.axis)
+      .filter((axis): axis is string => !!axis && axis.trim() !== "")
+      .filter((axis, index, self) => self.indexOf(axis) === index)
+      .sort();
+
+    setAvailableDimensions(dimensions);
+
+    // Don't auto-select - let user choose or clear
+  }, [selectedMetric, allMetrics]);
+
+  // Fetch financial data when metric, dimension, or granularity changes
   useEffect(() => {
     const fetchFinancialData = async () => {
       if (!selectedMetric) return;
@@ -121,7 +154,7 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
           ticker,
           selectedMetric.normalized_label,
           granularity,
-          selectedMetric.axis,
+          selectedDimension || undefined,
           selectedMetric.statement
         );
         setFinancialData(data);
@@ -136,7 +169,7 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
     };
 
     fetchFinancialData();
-  }, [ticker, selectedMetric, granularity]);
+  }, [ticker, selectedMetric, selectedDimension, granularity]);
 
   const handleGranularityToggle = () => {
     setGranularity(prev => (prev === "quarterly" ? "yearly" : "quarterly"));
@@ -216,12 +249,7 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
                             {statement}
                           </div>
                           {groupedMetrics[statement].map((metric, index) => {
-                            const displayLabel = metric.axis
-                              ? `${metric.normalized_label} (${metric.axis})`
-                              : metric.normalized_label;
-                            const uniqueKey = metric.axis
-                              ? `${metric.normalized_label}-${metric.axis}-${index}`
-                              : `${metric.normalized_label}-${index}`;
+                            const uniqueKey = `${metric.normalized_label}-${index}`;
 
                             return (
                               <SelectItem
@@ -229,7 +257,7 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
                                 value={metric.id}
                                 className="pl-6"
                               >
-                                {displayLabel} ({metric.count})
+                                {metric.normalized_label}
                               </SelectItem>
                             );
                           })}
@@ -270,27 +298,24 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
         {/* Chart */}
         {financialData && (
           <Card>
-            <CardHeader>
-              <CardTitle>
-                {selectedMetric
-                  ? selectedMetric.axis
-                    ? `${selectedMetric.normalized_label} (${selectedMetric.axis})`
-                    : selectedMetric.normalized_label
-                  : "No metric selected"}
-              </CardTitle>
-              <CardDescription>
-                {ticker} -{" "}
-                {granularity.charAt(0).toUpperCase() + granularity.slice(1)}{" "}
-                Data
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <FinancialChart
                 data={financialData}
                 selectedSeries={selectedSeries}
                 onSeriesChange={setSelectedSeries}
                 showGrowthLine={showGrowthLine}
                 onGrowthLineToggle={setShowGrowthLine}
+                title={
+                  selectedMetric
+                    ? selectedDimension
+                      ? `${selectedMetric.normalized_label} (${selectedDimension})`
+                      : selectedMetric.normalized_label
+                    : "No metric selected"
+                }
+                description={`${ticker} - ${granularity.charAt(0).toUpperCase() + granularity.slice(1)} Data`}
+                availableDimensions={availableDimensions}
+                selectedDimension={selectedDimension}
+                onDimensionChange={setSelectedDimension}
               />
             </CardContent>
           </Card>
