@@ -35,6 +35,57 @@ export interface DimensionNormalizationOverride {
   updated_at?: string | null;
 }
 
+export interface TickerResponse {
+  id: number;
+  ticker: string;
+  exchange: string;
+  status: string;
+}
+
+export interface FilingEntityResponse {
+  id: number;
+  registry: string;
+  number: string;
+  status: string;
+}
+
+export interface CompanyResponse {
+  id: number;
+  name: string;
+  industry?: string | null;
+  tickers: TickerResponse[];
+  filing_entities: FilingEntityResponse[];
+}
+
+export interface CompanyUpdate {
+  name?: string;
+  industry?: string | null;
+}
+
+export interface TickerCreate {
+  ticker: string;
+  exchange: string;
+  status: string;
+}
+
+export interface TickerUpdate {
+  ticker?: string;
+  exchange?: string;
+  status?: string;
+}
+
+export interface FilingEntityCreate {
+  registry: string;
+  number: string;
+  status: string;
+}
+
+export interface FilingEntityUpdate {
+  registry?: string;
+  number?: string;
+  status?: string;
+}
+
 export class AdminService {
   /**
    * List all concept normalization overrides, optionally filtered by statement
@@ -395,5 +446,202 @@ export class AdminService {
     }
 
     return response.json();
+  }
+
+  /**
+   * List all companies with managed relationships (tickers + filing entities)
+   */
+  static async listCompanies(): Promise<CompanyResponse[]> {
+    const response = await fetch(`${API_BASE_URL}/admin/companies`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch companies: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * Update a company (name/industry)
+   */
+  static async updateCompany(
+    companyId: number,
+    companyUpdate: CompanyUpdate
+  ): Promise<CompanyResponse> {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/companies/${companyId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(companyUpdate),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to update company: ${response.statusText} - ${errorText}`
+      );
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Add a ticker for a company
+   */
+  static async addCompanyTicker(
+    companyId: number,
+    ticker: TickerCreate
+  ): Promise<TickerResponse> {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/companies/${companyId}/tickers`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(ticker),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to add company ticker: ${response.statusText} - ${errorText}`
+      );
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Update a company ticker
+   */
+  static async updateCompanyTicker(
+    companyId: number,
+    tickerId: number,
+    tickerUpdate: TickerUpdate
+  ): Promise<TickerResponse> {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/companies/${companyId}/tickers/${tickerId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(tickerUpdate),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to update company ticker: ${response.statusText} - ${errorText}`
+      );
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Delete a company ticker
+   */
+  static async deleteCompanyTicker(
+    companyId: number,
+    tickerId: number
+  ): Promise<void> {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/companies/${companyId}/tickers/${tickerId}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to delete company ticker: ${response.statusText} - ${errorText}`
+      );
+    }
+  }
+
+  /**
+   * Add a filing entity for a company
+   */
+  static async addCompanyFilingEntity(
+    companyId: number,
+    filingEntity: FilingEntityCreate
+  ): Promise<FilingEntityResponse> {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/companies/${companyId}/filing-entities`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(filingEntity),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to add company filing entity: ${response.statusText} - ${errorText}`
+      );
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Update a company filing entity
+   */
+  static async updateCompanyFilingEntity(
+    companyId: number,
+    filingEntityId: number,
+    filingEntityUpdate: FilingEntityUpdate
+  ): Promise<FilingEntityResponse> {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/companies/${companyId}/filing-entities/${filingEntityId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(filingEntityUpdate),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to update company filing entity: ${response.statusText} - ${errorText}`
+      );
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Delete a company filing entity
+   */
+  static async deleteCompanyFilingEntity(
+    companyId: number,
+    filingEntityId: number
+  ): Promise<void> {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/companies/${companyId}/filing-entities/${filingEntityId}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to delete company filing entity: ${response.statusText} - ${errorText}`
+      );
+    }
   }
 }

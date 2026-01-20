@@ -27,6 +27,20 @@ export default function AdminPage() {
           <div className="grid gap-6">
             <Card>
               <CardHeader>
+                <CardTitle>Companies</CardTitle>
+                <CardDescription>
+                  Manage companies and their relationships: tickers and filing
+                  entities.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href="/admin/companies">
+                  <Button>Manage Companies</Button>
+                </Link>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
                 <CardTitle>Concept Normalization</CardTitle>
                 <CardDescription>
                   Manage concept normalization overrides for financial
