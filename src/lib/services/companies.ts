@@ -6,6 +6,12 @@ export interface CompanySearchResponse {
   ticker?: string | null;
 }
 
+export interface CompanyResponse {
+  id: number;
+  name: string;
+  ticker: string;
+}
+
 export class CompaniesService {
   /**
    * Search companies by name or ticker prefix
@@ -23,5 +29,24 @@ export class CompaniesService {
       throw new Error(`Failed to search companies: ${response.statusText}`);
     }
     return response.json();
+  }
+
+  /**
+   * Resolve company by ticker (used for company-level overrides).
+   * Backend: GET /companies?ticker=AAPL
+   */
+  static async getCompanyByTicker(
+    ticker: string
+  ): Promise<CompanyResponse | null> {
+    const url = new URL(`${API_BASE_URL}/companies`);
+    url.searchParams.set("ticker", ticker);
+
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`Failed to fetch company: ${response.statusText}`);
+    }
+
+    return (await response.json()) as CompanyResponse;
   }
 }

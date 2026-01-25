@@ -7,6 +7,7 @@ import {
   StatementData,
   FinancialFiling,
 } from "@/lib/services/financial-data";
+import { CompaniesService } from "@/lib/services/companies";
 import { FinancialTable } from "./financial-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,6 +93,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     "Statement of Equity": false,
   });
   const [filings, setFilings] = useState<FinancialFiling[]>([]);
+  const [companyId, setCompanyId] = useState<number>(0);
   const [showAllMetrics, setShowAllMetrics] = useState<boolean>(false);
 
   const statements: StatementType[] = useMemo(() => STATEMENT_TYPES, []);
@@ -208,6 +210,27 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     fetchFilings();
   }, [ticker]);
 
+  // Resolve company id by ticker (used for company-level overrides)
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCompany = async () => {
+      try {
+        const company = await CompaniesService.getCompanyByTicker(ticker);
+        if (!cancelled) {
+          setCompanyId(company?.id ?? 0);
+        }
+      } catch {
+        if (!cancelled) {
+          setCompanyId(0);
+        }
+      }
+    };
+    fetchCompany();
+    return () => {
+      cancelled = true;
+    };
+  }, [ticker]);
+
   // Fetch data when component mounts or when granularity/ticker/adminMode changes
   // Only fetch if data doesn't exist for the current granularity
   // Note: We need to refetch when adminMode changes since it affects the API response
@@ -297,6 +320,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
                     data={statementData[statement][granularity]}
                     loading={loading[statement]}
                     filings={filings}
+                    companyId={companyId}
                     adminMode={adminMode}
                     statement={statement}
                     showAllMetrics={showAllMetrics}

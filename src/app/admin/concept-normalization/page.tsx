@@ -266,9 +266,7 @@ export default function ConceptNormalizationPage() {
           ? "-1"
           : override.weight === 1
             ? "1"
-            : override.weight === null || override.weight === undefined
-              ? "1"
-              : "__none__") as WeightOption,
+            : "__none__") as WeightOption,
       unit: (isAbstract
         ? "__none__"
         : override.unit === "usd" || override.unit === "usdPerShare"

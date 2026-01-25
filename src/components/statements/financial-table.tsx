@@ -130,10 +130,16 @@ interface HeaderRowProps {
   sortedDates: string[];
   collapsedAbstracts: Set<string>;
   adminMode: boolean;
-  override: ConceptNormalizationOverride | null;
+  globalOverride: ConceptNormalizationOverride | null;
+  companyOverride: ConceptNormalizationOverride | null;
+  companyId: number;
   onToggleAbstract: (abstractId: string) => void;
   onEditClick: (override: ConceptNormalizationOverride) => void;
-  onCreateClick: (concept: string, normalizedLabel: string) => void;
+  onCreateClick: (
+    companyId: number,
+    concept: string,
+    normalizedLabel: string
+  ) => void;
 }
 
 const HeaderRow = React.memo(function HeaderRow({
@@ -141,7 +147,9 @@ const HeaderRow = React.memo(function HeaderRow({
   sortedDates,
   collapsedAbstracts,
   adminMode,
-  override,
+  globalOverride,
+  companyOverride,
+  companyId,
   onToggleAbstract,
   onEditClick,
   onCreateClick,
@@ -172,21 +180,51 @@ const HeaderRow = React.memo(function HeaderRow({
                   className="flex items-center gap-1"
                   onClick={e => e.stopPropagation()}
                 >
-                  {override ? (
+                  {/* Global override (company_id=0) */}
+                  {globalOverride ? (
                     <Button
+                      title="Edit global override"
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0"
-                      onClick={() => onEditClick(override)}
+                      onClick={() => onEditClick(globalOverride)}
                     >
                       <Pencil className="h-3 w-3" />
                     </Button>
                   ) : (
                     <Button
+                      title="Create global override"
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0"
-                      onClick={() => onCreateClick(item.concept!, item.text)}
+                      onClick={() => onCreateClick(0, item.concept!, item.text)}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  )}
+
+                  {/* Company override */}
+                  {companyOverride ? (
+                    <Button
+                      title="Edit company override"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => onEditClick(companyOverride)}
+                      disabled={companyId === 0}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  ) : (
+                    <Button
+                      title="Create company override"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() =>
+                        onCreateClick(companyId, item.concept!, item.text)
+                      }
+                      disabled={companyId === 0}
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
@@ -221,10 +259,16 @@ interface MetricRowProps {
   };
   sortedDates: string[];
   adminMode: boolean;
-  override: ConceptNormalizationOverride | null;
+  globalOverride: ConceptNormalizationOverride | null;
+  companyOverride: ConceptNormalizationOverride | null;
+  companyId: number;
   formatValue: (value: number) => string;
   onEditClick: (override: ConceptNormalizationOverride) => void;
-  onCreateClick: (concept: string, normalizedLabel: string) => void;
+  onCreateClick: (
+    companyId: number,
+    concept: string,
+    normalizedLabel: string
+  ) => void;
   onChartClick: (metric: {
     normalized_label: string;
     axis?: string;
@@ -239,7 +283,9 @@ const MetricRow = React.memo(function MetricRow({
   item,
   sortedDates,
   adminMode,
-  override,
+  globalOverride,
+  companyOverride,
+  companyId,
   formatValue,
   onEditClick,
   onCreateClick,
@@ -258,26 +304,61 @@ const MetricRow = React.memo(function MetricRow({
             <span>{item.text}</span>
             {adminMode && item.concept && (
               <div className="flex items-center gap-1">
-                {override ? (
+                {/* Global override (company_id=0) */}
+                {globalOverride ? (
                   <Button
+                    title="Edit global override"
                     variant="ghost"
                     size="sm"
                     className="h-6 w-6 p-0"
-                    onClick={() => onEditClick(override)}
+                    onClick={() => onEditClick(globalOverride)}
                   >
                     <Pencil className="h-3 w-3" />
                   </Button>
                 ) : (
                   <Button
+                    title="Create global override"
                     variant="ghost"
                     size="sm"
                     className="h-6 w-6 p-0"
                     onClick={() =>
                       onCreateClick(
+                        0,
                         item.concept!,
                         item.metric?.normalized_label || item.text
                       )
                     }
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                )}
+
+                {/* Company override */}
+                {companyOverride ? (
+                  <Button
+                    title="Edit company override"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => onEditClick(companyOverride)}
+                    disabled={companyId === 0}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                ) : (
+                  <Button
+                    title="Create company override"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() =>
+                      onCreateClick(
+                        companyId,
+                        item.concept!,
+                        item.metric?.normalized_label || item.text
+                      )
+                    }
+                    disabled={companyId === 0}
                   >
                     <Plus className="h-3 w-3" />
                   </Button>
@@ -317,6 +398,7 @@ interface FinancialTableProps {
   data: StatementData | null;
   loading: boolean;
   filings?: FinancialFiling[];
+  companyId?: number;
   adminMode?: boolean;
   statement?: StatementType;
   showAllMetrics?: boolean;
@@ -326,10 +408,16 @@ export function FinancialTable({
   data,
   loading,
   filings = [],
+  companyId: companyIdProp,
   adminMode = false,
   statement,
   showAllMetrics = false,
 }: FinancialTableProps) {
+  const companyId = useMemo(() => {
+    if (typeof companyIdProp === "number") return companyIdProp;
+    return filings[0]?.company_id ?? 0;
+  }, [companyIdProp, filings]);
+
   const [selectedMetric, setSelectedMetric] = useState<{
     metric: string;
     axis?: string;
@@ -361,13 +449,17 @@ export function FinancialTable({
   );
 
   // Admin mode state
-  const [overrides, setOverrides] = useState<ConceptNormalizationOverride[]>(
-    []
-  );
+  const [globalOverrides, setGlobalOverrides] = useState<
+    ConceptNormalizationOverride[]
+  >([]);
+  const [companyOverrides, setCompanyOverrides] = useState<
+    ConceptNormalizationOverride[]
+  >([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingOverride, setEditingOverride] =
     useState<ConceptNormalizationOverride | null>(null);
+  const [editingCompanyId, setEditingCompanyId] = useState<number>(0);
   const [editingConcept, setEditingConcept] = useState<{
     concept: string;
     normalizedLabel: string;
@@ -389,14 +481,20 @@ export function FinancialTable({
   const fetchOverrides = useCallback(async () => {
     if (!adminMode || !statement) return;
     try {
-      const data = await AdminService.listConceptOverrides(0, statement);
-      setOverrides(data);
+      const [global, companySpecific] = await Promise.all([
+        AdminService.listConceptOverrides(0, statement),
+        companyId
+          ? AdminService.listConceptOverrides(companyId, statement)
+          : Promise.resolve([] as ConceptNormalizationOverride[]),
+      ]);
+      setGlobalOverrides(global);
+      setCompanyOverrides(companyId ? companySpecific : []);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to fetch overrides"
       );
     }
-  }, [adminMode, statement]);
+  }, [adminMode, companyId, statement]);
 
   useEffect(() => {
     if (adminMode && statement) {
@@ -406,19 +504,24 @@ export function FinancialTable({
 
   // Check if an override exists for a concept
   const getOverrideForConcept = (
+    list: ConceptNormalizationOverride[],
     concept: string | undefined
   ): ConceptNormalizationOverride | null => {
     if (!concept || !statement) return null;
     return (
-      overrides.find(o => o.concept === concept && o.statement === statement) ||
-      null
+      list.find(o => o.concept === concept && o.statement === statement) || null
     );
   };
 
   // Handle create button click
   const handleCreateClick = useCallback(
-    (concept: string | undefined, normalizedLabel: string) => {
+    (
+      targetCompanyId: number,
+      concept: string | undefined,
+      normalizedLabel: string
+    ) => {
       if (!concept || !statement) return;
+      setEditingCompanyId(targetCompanyId);
       setEditingConcept({ concept, normalizedLabel });
       setFormData({
         concept,
@@ -440,6 +543,7 @@ export function FinancialTable({
   const handleEditClick = useCallback(
     (override: ConceptNormalizationOverride) => {
       setEditingOverride(override);
+      setEditingCompanyId(override.company_id ?? 0);
       const isAbstract = override.is_abstract;
       setFormData({
         concept: override.concept,
@@ -454,9 +558,7 @@ export function FinancialTable({
             ? "-1"
             : override.weight === 1
               ? "1"
-              : override.weight === null || override.weight === undefined
-                ? "1"
-                : "__none__") as WeightOption,
+              : "__none__") as WeightOption,
         unit: (isAbstract
           ? "__none__"
           : override.unit === "usd" || override.unit === "usdPerShare"
@@ -482,7 +584,7 @@ export function FinancialTable({
       const unit = formData.unit === "__none__" ? null : formData.unit;
 
       await AdminService.createConceptOverride({
-        company_id: 0,
+        company_id: editingCompanyId,
         concept: formData.concept,
         statement: formData.statement,
         normalized_label: formData.normalized_label,
@@ -512,7 +614,7 @@ export function FinancialTable({
       const unit = formData.unit === "__none__" ? null : formData.unit;
 
       await AdminService.updateConceptOverride(
-        0,
+        editingCompanyId,
         editingOverride.concept,
         editingOverride.statement,
         {
@@ -901,9 +1003,13 @@ export function FinancialTable({
         <TableBody>
           {hierarchicalStructure.filter(isItemVisible).map(item => {
             if (item.type === "header") {
-              const override = item.concept
-                ? getOverrideForConcept(item.concept)
+              const globalOverride = item.concept
+                ? getOverrideForConcept(globalOverrides, item.concept)
                 : null;
+              const companyOverride =
+                item.concept && companyId
+                  ? getOverrideForConcept(companyOverrides, item.concept)
+                  : null;
               return (
                 <HeaderRow
                   key={`header-${item.abstractId}`}
@@ -911,16 +1017,22 @@ export function FinancialTable({
                   sortedDates={sortedDates}
                   collapsedAbstracts={collapsedAbstracts}
                   adminMode={adminMode}
-                  override={override}
+                  globalOverride={globalOverride}
+                  companyOverride={companyOverride}
+                  companyId={companyId}
                   onToggleAbstract={toggleAbstract}
                   onEditClick={handleEditClick}
                   onCreateClick={handleCreateClick}
                 />
               );
             } else {
-              const override = item.concept
-                ? getOverrideForConcept(item.concept)
+              const globalOverride = item.concept
+                ? getOverrideForConcept(globalOverrides, item.concept)
                 : null;
+              const companyOverride =
+                item.concept && companyId
+                  ? getOverrideForConcept(companyOverrides, item.concept)
+                  : null;
               // Use concept as key, fallback to normalized_label if concept is not available
               const stableKey =
                 item.concept || item.metric?.normalized_label || item.text;
@@ -930,7 +1042,9 @@ export function FinancialTable({
                   item={item}
                   sortedDates={sortedDates}
                   adminMode={adminMode}
-                  override={override}
+                  globalOverride={globalOverride}
+                  companyOverride={companyOverride}
+                  companyId={companyId}
                   formatValue={formatValue}
                   onEditClick={handleEditClick}
                   onCreateClick={handleCreateClick}
@@ -981,12 +1095,13 @@ export function FinancialTable({
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         mode="create"
-        title="Create Concept Normalization Override"
+        title={`Create Concept Normalization Override (${editingCompanyId === 0 ? "Global" : "Company"})`}
         description="Create a new override to map a financial concept to a normalized label."
         onSubmit={handleCreateSubmit}
         onCancel={() => {
           setIsCreateDialogOpen(false);
           setEditingConcept(null);
+          setEditingCompanyId(0);
           setError(null);
         }}
         submitLabel="Create"
@@ -1003,12 +1118,13 @@ export function FinancialTable({
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
         mode="edit"
-        title="Edit Concept Normalization Override"
+        title={`Edit Concept Normalization Override (${editingCompanyId === 0 ? "Global" : "Company"})`}
         description={`Update the override for ${editingOverride?.concept} in ${editingOverride?.statement}.`}
         onSubmit={handleEditSubmit}
         onCancel={() => {
           setIsEditDialogOpen(false);
           setEditingOverride(null);
+          setEditingCompanyId(0);
           setError(null);
         }}
         submitLabel="Save Changes"
