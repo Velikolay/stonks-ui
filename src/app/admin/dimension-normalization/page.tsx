@@ -7,7 +7,9 @@ import {
   DimensionNormalizationOverride,
   ImportSummary,
 } from "@/lib/services/admin";
+import type { CompanySearchResponse } from "@/lib/services/companies";
 import { Button } from "@/components/ui/button";
+import { CompanySelector } from "@/components/company-selector";
 import {
   Card,
   CardContent,
@@ -156,6 +158,9 @@ export default function DimensionNormalizationPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<number>(0);
+  const [selectedCompany, setSelectedCompany] =
+    useState<CompanySearchResponse | null>(null);
   const [editingOverride, setEditingOverride] =
     useState<DimensionNormalizationOverride | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -187,7 +192,7 @@ export default function DimensionNormalizationPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await AdminService.listDimensionOverrides();
+      const data = await AdminService.listDimensionOverrides(companyId);
       setOverrides(data);
     } catch (err) {
       setError(
@@ -196,7 +201,7 @@ export default function DimensionNormalizationPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     fetchOverrides();
@@ -242,6 +247,7 @@ export default function DimensionNormalizationPage() {
         : null;
 
       await AdminService.createDimensionOverride({
+        company_id: companyId,
         axis: formData.axis,
         member: formData.member.trim() || "*",
         member_label: formData.member_label.trim() || "*",
@@ -270,6 +276,7 @@ export default function DimensionNormalizationPage() {
 
       // Use original values for URL (they are the identifier and cannot be changed)
       await AdminService.updateDimensionOverride(
+        companyId,
         editingOverride.axis,
         editingOverride.member,
         editingOverride.member_label,
@@ -293,6 +300,7 @@ export default function DimensionNormalizationPage() {
     if (!deleteTarget) return;
     try {
       await AdminService.deleteDimensionOverride(
+        companyId,
         deleteTarget.axis,
         deleteTarget.member,
         deleteTarget.member_label
@@ -475,51 +483,71 @@ export default function DimensionNormalizationPage() {
           {/* Controls */}
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Actions</CardTitle>
+              <CardTitle>Filters & Actions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-4 items-end">
-                <Button onClick={handleCreate}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Override
-                </Button>
-                <Button onClick={handleExport} variant="outline">
-                  <Download className="mr-2 h-4 w-4" />
-                  Export CSV
-                </Button>
-                <Button
-                  onClick={() => setIsImportDialogOpen(true)}
-                  variant="outline"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import CSV
-                </Button>
-                <div className="flex items-center gap-2 border-l pl-4 ml-2">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="refresh-concurrent"
-                      checked={refreshConcurrent}
-                      onChange={e => setRefreshConcurrent(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    <Label
-                      htmlFor="refresh-concurrent"
-                      className="cursor-pointer"
-                    >
-                      Concurrent
-                    </Label>
-                  </div>
-                  <Button
-                    onClick={handleRefreshFinancials}
-                    variant="outline"
-                    disabled={isRefreshing}
-                  >
-                    <RefreshCw
-                      className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-                    />
-                    Refresh Financials
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+                {/* Filters */}
+                <div className="space-y-4">
+                  <CompanySelector
+                    className="w-full sm:w-[320px]"
+                    value={selectedCompany}
+                    onChange={company => {
+                      setSelectedCompany(company);
+                      setCompanyId(company?.id ?? 0);
+                    }}
+                    includeNullOption
+                    nullOptionLabel="Global"
+                    emptyQuerySetsNull
+                    onError={message => setError(message)}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-wrap gap-3 lg:justify-end">
+                  <Button onClick={handleCreate}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Override
                   </Button>
+                  <Button onClick={handleExport} variant="outline">
+                    <Download className="mr-2 h-4 w-4" />
+                    Export CSV
+                  </Button>
+                  <Button
+                    onClick={() => setIsImportDialogOpen(true)}
+                    variant="outline"
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import CSV
+                  </Button>
+
+                  <div className="w-full flex flex-wrap items-center justify-start lg:justify-end gap-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="refresh-concurrent"
+                        checked={refreshConcurrent}
+                        onChange={e => setRefreshConcurrent(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <Label
+                        htmlFor="refresh-concurrent"
+                        className="cursor-pointer"
+                      >
+                        Concurrent
+                      </Label>
+                    </div>
+                    <Button
+                      onClick={handleRefreshFinancials}
+                      variant="outline"
+                      disabled={isRefreshing}
+                    >
+                      <RefreshCw
+                        className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                      />
+                      Refresh Financials
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>

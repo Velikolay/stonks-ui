@@ -26,6 +26,7 @@ export interface ImportSummary {
 }
 
 export interface DimensionNormalizationOverride {
+  company_id: number;
   axis: string;
   member: string;
   member_label: string;
@@ -279,11 +280,13 @@ export class AdminService {
    * List all dimension normalization overrides, optionally filtered by axis
    */
   static async listDimensionOverrides(
+    companyId: number,
     axis?: string
   ): Promise<DimensionNormalizationOverride[]> {
     const url = new URL(
       `${API_BASE_URL}/admin/dimension-normalization-overrides`
     );
+    url.searchParams.set("company_id", companyId.toString());
     if (axis) {
       url.searchParams.set("axis", axis);
     }
@@ -328,6 +331,7 @@ export class AdminService {
    * Update an existing dimension normalization override
    */
   static async updateDimensionOverride(
+    companyId: number,
     axis: string,
     member: string,
     memberLabel: string,
@@ -341,7 +345,7 @@ export class AdminService {
     const encodedAxis = encodeURIComponent(axis);
     const encodedMember = encodeURIComponent(member);
     const encodedMemberLabel = encodeURIComponent(memberLabel);
-    const url = `${API_BASE_URL}/admin/dimension-normalization-overrides/${encodedAxis}/${encodedMember}/${encodedMemberLabel}`;
+    const url = `${API_BASE_URL}/admin/dimension-normalization-overrides/${companyId}/${encodedAxis}/${encodedMember}/${encodedMemberLabel}`;
 
     const response = await fetch(url, {
       method: "PUT",
@@ -365,6 +369,7 @@ export class AdminService {
    * Delete a dimension normalization override
    */
   static async deleteDimensionOverride(
+    companyId: number,
     axis: string,
     member: string,
     memberLabel: string
@@ -372,7 +377,7 @@ export class AdminService {
     const encodedAxis = encodeURIComponent(axis);
     const encodedMember = encodeURIComponent(member);
     const encodedMemberLabel = encodeURIComponent(memberLabel);
-    const url = `${API_BASE_URL}/admin/dimension-normalization-overrides/${encodedAxis}/${encodedMember}/${encodedMemberLabel}`;
+    const url = `${API_BASE_URL}/admin/dimension-normalization-overrides/${companyId}/${encodedAxis}/${encodedMember}/${encodedMemberLabel}`;
 
     const response = await fetch(url, {
       method: "DELETE",
