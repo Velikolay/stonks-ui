@@ -92,7 +92,7 @@ export class AdminService {
   /**
    * List all concept normalization overrides, optionally filtered by statement
    */
-  static async listOverrides(
+  static async listConceptOverrides(
     companyId: number,
     statement?: StatementType
   ): Promise<ConceptNormalizationOverride[]> {
@@ -116,7 +116,7 @@ export class AdminService {
   /**
    * Create a new override
    */
-  static async createOverride(
+  static async createConceptOverride(
     override: Omit<ConceptNormalizationOverride, "concept" | "statement"> & {
       concept: string;
       statement: StatementType;
@@ -146,7 +146,7 @@ export class AdminService {
   /**
    * Update an existing override
    */
-  static async updateOverride(
+  static async updateConceptOverride(
     companyId: number,
     concept: string,
     statement: StatementType,
@@ -179,7 +179,7 @@ export class AdminService {
   /**
    * Delete an override
    */
-  static async deleteOverride(
+  static async deleteConceptOverride(
     companyId: number,
     concept: string,
     statement: StatementType
@@ -203,7 +203,7 @@ export class AdminService {
   /**
    * Export overrides as CSV
    */
-  static async exportOverrides(
+  static async exportConceptOverrides(
     statement?: StatementType,
     companyId?: number
   ): Promise<Blob> {
@@ -229,7 +229,7 @@ export class AdminService {
   /**
    * Import overrides from CSV
    */
-  static async importOverrides(
+  static async importConceptOverrides(
     file: File,
     updateExisting: boolean = false
   ): Promise<ImportSummary> {
@@ -254,26 +254,6 @@ export class AdminService {
     }
 
     return response.json();
-  }
-
-  /**
-   * Refresh financials data
-   */
-  static async refreshFinancials(concurrent: boolean = true): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/admin/financials/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ concurrent }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `Failed to refresh financials: ${response.statusText} - ${errorText}`
-      );
-    }
   }
 
   /**
@@ -439,6 +419,26 @@ export class AdminService {
     }
 
     return response.json();
+  }
+
+  /**
+   * Refresh financials data
+   */
+  static async refreshFinancials(concurrent: boolean = true): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/admin/financials/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ concurrent }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to refresh financials: ${response.statusText} - ${errorText}`
+      );
+    }
   }
 
   /**

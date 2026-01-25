@@ -217,7 +217,7 @@ export default function ConceptNormalizationPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await AdminService.listOverrides(
+      const data = await AdminService.listConceptOverrides(
         companyId,
         statementFilter === "all" ? undefined : statementFilter
       );
@@ -294,7 +294,7 @@ export default function ConceptNormalizationPage() {
         formData.weight === "__none__" ? null : parseFloat(formData.weight);
       const unit = formData.unit === "__none__" ? null : formData.unit;
 
-      await AdminService.createOverride({
+      await AdminService.createConceptOverride({
         company_id: companyId,
         concept: formData.concept,
         statement: formData.statement,
@@ -322,7 +322,7 @@ export default function ConceptNormalizationPage() {
         formData.weight === "__none__" ? null : parseFloat(formData.weight);
       const unit = formData.unit === "__none__" ? null : formData.unit;
 
-      await AdminService.updateOverride(
+      await AdminService.updateConceptOverride(
         companyId,
         editingOverride.concept,
         editingOverride.statement,
@@ -349,7 +349,7 @@ export default function ConceptNormalizationPage() {
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     try {
-      await AdminService.deleteOverride(
+      await AdminService.deleteConceptOverride(
         companyId,
         deleteTarget.concept,
         deleteTarget.statement
@@ -366,7 +366,7 @@ export default function ConceptNormalizationPage() {
 
   const handleExport = async () => {
     try {
-      const blob = await AdminService.exportOverrides(
+      const blob = await AdminService.exportConceptOverrides(
         statementFilter === "all" ? undefined : statementFilter
       );
       const url = window.URL.createObjectURL(blob);
@@ -391,7 +391,7 @@ export default function ConceptNormalizationPage() {
   const handleImport = async () => {
     if (!importFile) return;
     try {
-      const result = await AdminService.importOverrides(
+      const result = await AdminService.importConceptOverrides(
         importFile,
         updateExisting
       );

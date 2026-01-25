@@ -389,7 +389,7 @@ export function FinancialTable({
   const fetchOverrides = useCallback(async () => {
     if (!adminMode || !statement) return;
     try {
-      const data = await AdminService.listOverrides(0, statement);
+      const data = await AdminService.listConceptOverrides(0, statement);
       setOverrides(data);
     } catch (err) {
       setError(
@@ -481,7 +481,7 @@ export function FinancialTable({
         formData.weight === "__none__" ? null : parseFloat(formData.weight);
       const unit = formData.unit === "__none__" ? null : formData.unit;
 
-      await AdminService.createOverride({
+      await AdminService.createConceptOverride({
         company_id: 0,
         concept: formData.concept,
         statement: formData.statement,
@@ -511,7 +511,7 @@ export function FinancialTable({
         formData.weight === "__none__" ? null : parseFloat(formData.weight);
       const unit = formData.unit === "__none__" ? null : formData.unit;
 
-      await AdminService.updateOverride(
+      await AdminService.updateConceptOverride(
         0,
         editingOverride.concept,
         editingOverride.statement,
