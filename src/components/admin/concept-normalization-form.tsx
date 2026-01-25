@@ -136,7 +136,7 @@ export const ConceptNormalizationForm = React.memo(
                 return {
                   ...prev,
                   is_abstract: false,
-                  weight: "1",
+                  weight: "__none__",
                   unit: "usd",
                 };
               });

@@ -379,7 +379,7 @@ export function FinancialTable({
     is_abstract: false,
     parent_concept: "",
     abstract_concept: "",
-    weight: "1" as WeightOption,
+    weight: "__none__" as WeightOption,
     unit: "usd" as UnitOption,
     description: "",
   });
@@ -389,7 +389,7 @@ export function FinancialTable({
   const fetchOverrides = useCallback(async () => {
     if (!adminMode || !statement) return;
     try {
-      const data = await AdminService.listOverrides(statement);
+      const data = await AdminService.listOverrides(0, statement);
       setOverrides(data);
     } catch (err) {
       setError(
@@ -427,7 +427,7 @@ export function FinancialTable({
         is_abstract: false,
         parent_concept: "",
         abstract_concept: "",
-        weight: "1" as WeightOption,
+        weight: "__none__" as WeightOption,
         unit: "usd" as UnitOption,
         description: "",
       });
@@ -482,6 +482,7 @@ export function FinancialTable({
       const unit = formData.unit === "__none__" ? null : formData.unit;
 
       await AdminService.createOverride({
+        company_id: 0,
         concept: formData.concept,
         statement: formData.statement,
         normalized_label: formData.normalized_label,
@@ -511,6 +512,7 @@ export function FinancialTable({
       const unit = formData.unit === "__none__" ? null : formData.unit;
 
       await AdminService.updateOverride(
+        0,
         editingOverride.concept,
         editingOverride.statement,
         {

@@ -7,8 +7,10 @@ import {
   ConceptNormalizationOverride,
   ImportSummary,
 } from "@/lib/services/admin";
+import type { CompanySearchResponse } from "@/lib/services/companies";
 import { StatementType, STATEMENT_TYPES } from "@/lib/services/protocol";
 import { Button } from "@/components/ui/button";
+import { CompanySelector } from "@/components/company-selector";
 import {
   Card,
   CardContent,
@@ -175,6 +177,9 @@ export default function ConceptNormalizationPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<number>(0);
+  const [selectedCompany, setSelectedCompany] =
+    useState<CompanySearchResponse | null>(null);
   const [statementFilter, setStatementFilter] = useState<StatementType | "all">(
     "all"
   );
@@ -213,6 +218,7 @@ export default function ConceptNormalizationPage() {
     setError(null);
     try {
       const data = await AdminService.listOverrides(
+        companyId,
         statementFilter === "all" ? undefined : statementFilter
       );
       setOverrides(data);
@@ -223,7 +229,7 @@ export default function ConceptNormalizationPage() {
     } finally {
       setLoading(false);
     }
-  }, [statementFilter]);
+  }, [companyId, statementFilter]);
 
   useEffect(() => {
     fetchOverrides();
@@ -237,7 +243,7 @@ export default function ConceptNormalizationPage() {
       is_abstract: false,
       parent_concept: "",
       abstract_concept: "",
-      weight: "1" as WeightOption,
+      weight: "__none__" as WeightOption,
       unit: "usd" as UnitOption,
       description: "",
     });
@@ -289,6 +295,7 @@ export default function ConceptNormalizationPage() {
       const unit = formData.unit === "__none__" ? null : formData.unit;
 
       await AdminService.createOverride({
+        company_id: companyId,
         concept: formData.concept,
         statement: formData.statement,
         normalized_label: formData.normalized_label,
@@ -316,6 +323,7 @@ export default function ConceptNormalizationPage() {
       const unit = formData.unit === "__none__" ? null : formData.unit;
 
       await AdminService.updateOverride(
+        companyId,
         editingOverride.concept,
         editingOverride.statement,
         {
@@ -342,6 +350,7 @@ export default function ConceptNormalizationPage() {
     if (!deleteTarget) return;
     try {
       await AdminService.deleteOverride(
+        companyId,
         deleteTarget.concept,
         deleteTarget.statement
       );
@@ -538,69 +547,90 @@ export default function ConceptNormalizationPage() {
               <CardTitle>Filters & Actions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-4 items-end">
-                <div className="flex-1 min-w-[200px]">
-                  <Label htmlFor="statement-filter">Statement Type</Label>
-                  <Select
-                    value={statementFilter}
-                    onValueChange={value =>
-                      setStatementFilter(value as StatementType | "all")
-                    }
-                  >
-                    <SelectTrigger id="statement-filter">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statements</SelectItem>
-                      {STATEMENT_TYPES.map(stmt => (
-                        <SelectItem key={stmt} value={stmt}>
-                          {stmt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={handleCreate}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Override
-                </Button>
-                <Button onClick={handleExport} variant="outline">
-                  <Download className="mr-2 h-4 w-4" />
-                  Export CSV
-                </Button>
-                <Button
-                  onClick={() => setIsImportDialogOpen(true)}
-                  variant="outline"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import CSV
-                </Button>
-                <div className="flex items-center gap-2 border-l pl-4 ml-2">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="refresh-concurrent"
-                      checked={refreshConcurrent}
-                      onChange={e => setRefreshConcurrent(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    <Label
-                      htmlFor="refresh-concurrent"
-                      className="cursor-pointer"
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+                {/* Filters */}
+                <div className="space-y-4">
+                  <CompanySelector
+                    className="w-full sm:w-[320px]"
+                    value={selectedCompany}
+                    onChange={company => {
+                      setSelectedCompany(company);
+                      setCompanyId(company?.id ?? 0);
+                    }}
+                    includeNullOption
+                    nullOptionLabel="Global"
+                    emptyQuerySetsNull
+                    onError={message => setError(message)}
+                  />
+
+                  <div className="w-full sm:w-[320px]">
+                    <Label htmlFor="statement-filter">Statement Type</Label>
+                    <Select
+                      value={statementFilter}
+                      onValueChange={value =>
+                        setStatementFilter(value as StatementType | "all")
+                      }
                     >
-                      Concurrent
-                    </Label>
+                      <SelectTrigger id="statement-filter" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statements</SelectItem>
+                        {STATEMENT_TYPES.map(stmt => (
+                          <SelectItem key={stmt} value={stmt}>
+                            {stmt}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Button
-                    onClick={handleRefreshFinancials}
-                    variant="outline"
-                    disabled={isRefreshing}
-                  >
-                    <RefreshCw
-                      className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-                    />
-                    Refresh Financials
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-wrap gap-3 lg:justify-end">
+                  <Button onClick={handleCreate}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Override
                   </Button>
+                  <Button onClick={handleExport} variant="outline">
+                    <Download className="mr-2 h-4 w-4" />
+                    Export CSV
+                  </Button>
+                  <Button
+                    onClick={() => setIsImportDialogOpen(true)}
+                    variant="outline"
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import CSV
+                  </Button>
+
+                  <div className="w-full flex flex-wrap items-center justify-start lg:justify-end gap-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="refresh-concurrent"
+                        checked={refreshConcurrent}
+                        onChange={e => setRefreshConcurrent(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <Label
+                        htmlFor="refresh-concurrent"
+                        className="cursor-pointer"
+                      >
+                        Concurrent
+                      </Label>
+                    </div>
+                    <Button
+                      onClick={handleRefreshFinancials}
+                      variant="outline"
+                      disabled={isRefreshing}
+                    >
+                      <RefreshCw
+                        className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                      />
+                      Refresh Financials
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>

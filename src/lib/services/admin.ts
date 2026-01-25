@@ -3,6 +3,7 @@ import { StatementType } from "@/lib/services/protocol";
 const API_BASE_URL = "http://localhost:8000";
 
 export interface ConceptNormalizationOverride {
+  company_id: number;
   concept: string;
   statement: StatementType;
   normalized_label: string;
@@ -91,11 +92,13 @@ export class AdminService {
    * List all concept normalization overrides, optionally filtered by statement
    */
   static async listOverrides(
+    companyId: number,
     statement?: StatementType
   ): Promise<ConceptNormalizationOverride[]> {
     const url = new URL(
       `${API_BASE_URL}/admin/concept-normalization-overrides`
     );
+    url.searchParams.set("company_id", companyId.toString());
     if (statement) {
       url.searchParams.set("statement", statement);
     }
@@ -104,29 +107,6 @@ export class AdminService {
 
     if (!response.ok) {
       throw new Error(`Failed to fetch overrides: ${response.statusText}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Get a single override by concept and statement
-   */
-  static async getOverride(
-    concept: string,
-    statement: StatementType
-  ): Promise<ConceptNormalizationOverride> {
-    const encodedConcept = encodeURIComponent(concept);
-    const encodedStatement = encodeURIComponent(statement);
-    const url = `${API_BASE_URL}/admin/concept-normalization-overrides/${encodedStatement}/${encodedConcept}`;
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error("Override not found");
-      }
-      throw new Error(`Failed to fetch override: ${response.statusText}`);
     }
 
     return response.json();
@@ -166,6 +146,7 @@ export class AdminService {
    * Update an existing override
    */
   static async updateOverride(
+    companyId: number,
     concept: string,
     statement: StatementType,
     override: Partial<
@@ -174,7 +155,7 @@ export class AdminService {
   ): Promise<ConceptNormalizationOverride> {
     const encodedConcept = encodeURIComponent(concept);
     const encodedStatement = encodeURIComponent(statement);
-    const url = `${API_BASE_URL}/admin/concept-normalization-overrides/${encodedStatement}/${encodedConcept}`;
+    const url = `${API_BASE_URL}/admin/concept-normalization-overrides/${companyId}/${encodedStatement}/${encodedConcept}`;
 
     const response = await fetch(url, {
       method: "PUT",
@@ -198,12 +179,13 @@ export class AdminService {
    * Delete an override
    */
   static async deleteOverride(
+    companyId: number,
     concept: string,
     statement: StatementType
   ): Promise<void> {
     const encodedConcept = encodeURIComponent(concept);
     const encodedStatement = encodeURIComponent(statement);
-    const url = `${API_BASE_URL}/admin/concept-normalization-overrides/${encodedStatement}/${encodedConcept}`;
+    const url = `${API_BASE_URL}/admin/concept-normalization-overrides/${companyId}/${encodedStatement}/${encodedConcept}`;
 
     const response = await fetch(url, {
       method: "DELETE",
@@ -220,10 +202,16 @@ export class AdminService {
   /**
    * Export overrides as CSV
    */
-  static async exportOverrides(statement?: StatementType): Promise<Blob> {
+  static async exportOverrides(
+    statement?: StatementType,
+    companyId?: number
+  ): Promise<Blob> {
     const url = new URL(
       `${API_BASE_URL}/admin/concept-normalization-overrides/export`
     );
+    if (companyId) {
+      url.searchParams.set("company_id", companyId.toString());
+    }
     if (statement) {
       url.searchParams.set("statement", statement);
     }
