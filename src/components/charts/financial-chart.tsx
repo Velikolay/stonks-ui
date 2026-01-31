@@ -72,7 +72,27 @@ export function FinancialChart({
 
   // Always use series-based approach - data.series is required
   // Always show all series, but apply blur to non-selected ones
-  const allSeries = data.series;
+  //
+  // For stacked-bar dimension charts, sort categories (series) by their
+  // global total across all periods (descending).
+  const seriesTotals = data.series.reduce(
+    (acc, series) => {
+      acc[series.name] = series.data.reduce((sum, p) => sum + p.value, 0);
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  const allSeries = [...data.series]
+    .map((series, index) => ({ series, index }))
+    .sort((a, b) => {
+      const aTotal = seriesTotals[a.series.name] ?? 0;
+      const bTotal = seriesTotals[b.series.name] ?? 0;
+      if (bTotal !== aTotal) return bTotal - aTotal;
+      // Stable fallback to original order.
+      return a.index - b.index;
+    })
+    .map(x => x.series);
 
   // Create consistent color mapping for all series based on original order
   const allColors = generateColors(data.series.length);
@@ -197,7 +217,7 @@ export function FinancialChart({
   const growthData = calculateGrowthRates();
 
   const option: Record<string, unknown> = {
-    color: data.series.map(s => seriesColorMap[s.name]), // Always use all series for color array
+    color: allSeries.map(s => seriesColorMap[s.name]), // Use sorted order for palette
     grid: {
       left: "10%",
       right: "10%",
@@ -339,14 +359,14 @@ export function FinancialChart({
       },
     },
     legend: {
-      data: [...data.series.map(s => s.name), "YoY Growth"],
+      data: [...allSeries.map(s => s.name), "YoY Growth"],
       bottom: 0,
       textStyle: {
         color: "#64748b",
         fontSize: 12,
       },
       selected: {
-        ...data.series.reduce(
+        ...allSeries.reduce(
           (acc, series) => {
             acc[series.name] =
               selectedSeries.length === 0 ||

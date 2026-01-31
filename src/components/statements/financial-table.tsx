@@ -650,7 +650,8 @@ export function FinancialTable({
 
       setSelectedMetric({
         metric: metric.normalized_label,
-        axis: metric.axis,
+        // Don't preselect a dimension/axis on open; user can choose.
+        axis: undefined,
         ticker: data.ticker,
         granularity: data.granularity,
         statement: data.statement,
@@ -678,7 +679,8 @@ export function FinancialTable({
           .sort();
 
         setAvailableDimensions(dimensions);
-        setSelectedDimension(dimensions.length > 0 ? dimensions[0] : null);
+        // Start with no dimension selected (total), even if dimensions are available.
+        setSelectedDimension(null);
       } catch {
         // Handle error silently
         setAvailableDimensions([]);
@@ -691,7 +693,7 @@ export function FinancialTable({
           data.ticker,
           metric.normalized_label,
           data.granularity,
-          metric.axis,
+          undefined,
           data.statement
         );
         setChartData(financialData);
