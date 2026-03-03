@@ -69,6 +69,21 @@ export default function AdminPage() {
                 </Link>
               </CardContent>
             </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Financial Facts Overrides</CardTitle>
+                <CardDescription>
+                  Manage financial facts overrides. Map (concept + optional
+                  dimension filters + optional date range) to a target concept
+                  and optional target dimensions.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href="/admin/financial-facts-overrides">
+                  <Button>Manage Financial Facts Overrides</Button>
+                </Link>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Navigation */}

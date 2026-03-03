@@ -37,6 +37,52 @@ export interface DimensionNormalizationOverride {
   updated_at?: string | null;
 }
 
+export interface FinancialFactsOverride {
+  id: number;
+  company_id: number;
+  concept: string;
+  statement: StatementType;
+  axis?: string | null;
+  member?: string | null;
+  label?: string | null;
+  form_type?: string | null;
+  from_period?: string | null;
+  to_period?: string | null;
+  to_concept: string;
+  to_axis?: string | null;
+  to_member?: string | null;
+  is_global: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type FinancialFactsOverrideCreate = {
+  company_id: number;
+  concept: string;
+  statement: StatementType;
+  axis?: string | null;
+  member?: string | null;
+  label?: string | null;
+  form_type?: string | null;
+  from_period?: string | null;
+  to_period?: string | null;
+  to_concept: string;
+  to_axis?: string | null;
+  to_member?: string | null;
+};
+
+export type FinancialFactsOverrideUpdate = {
+  axis?: string | null;
+  member?: string | null;
+  label?: string | null;
+  form_type?: string | null;
+  from_period?: string | null;
+  to_period?: string | null;
+  to_concept?: string | null;
+  to_axis?: string | null;
+  to_member?: string | null;
+};
+
 export interface TickerResponse {
   id: number;
   ticker: string;
@@ -403,6 +449,156 @@ export class AdminService {
 
     const url = new URL(
       `${API_BASE_URL}/admin/dimension-normalization-overrides/import`
+    );
+    url.searchParams.set("update_existing", updateExisting.toString());
+
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to import overrides: ${response.statusText} - ${errorText}`
+      );
+    }
+
+    return response.json();
+  }
+
+  /**
+   * List financial facts overrides, optionally filtered by statement/concept
+   */
+  static async listFinancialFactsOverrides(
+    companyId: number,
+    statement?: StatementType,
+    concept?: string
+  ): Promise<FinancialFactsOverride[]> {
+    const url = new URL(`${API_BASE_URL}/admin/financial-facts-overrides`);
+    url.searchParams.set("company_id", companyId.toString());
+    if (statement) {
+      url.searchParams.set("statement", statement);
+    }
+    if (concept) {
+      url.searchParams.set("concept", concept);
+    }
+
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(`Failed to fetch overrides: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * Create a financial facts override
+   */
+  static async createFinancialFactsOverride(
+    override: FinancialFactsOverrideCreate
+  ): Promise<FinancialFactsOverride> {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/financial-facts-overrides`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(override),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to create override: ${response.statusText} - ${errorText}`
+      );
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Update a financial facts override
+   */
+  static async updateFinancialFactsOverride(
+    overrideId: number,
+    override: FinancialFactsOverrideUpdate
+  ): Promise<FinancialFactsOverride> {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/financial-facts-overrides/${overrideId}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(override),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to update override: ${response.statusText} - ${errorText}`
+      );
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Delete a financial facts override
+   */
+  static async deleteFinancialFactsOverride(overrideId: number): Promise<void> {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/financial-facts-overrides/${overrideId}`,
+      { method: "DELETE" }
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error("Override not found");
+      }
+      throw new Error(`Failed to delete override: ${response.statusText}`);
+    }
+  }
+
+  /**
+   * Export financial facts overrides as CSV
+   */
+  static async exportFinancialFactsOverrides(filters?: {
+    companyId?: number;
+    statement?: StatementType;
+    concept?: string;
+  }): Promise<Blob> {
+    const url = new URL(
+      `${API_BASE_URL}/admin/financial-facts-overrides/export`
+    );
+    if (filters?.companyId !== undefined) {
+      url.searchParams.set("company_id", filters.companyId.toString());
+    }
+    if (filters?.statement) {
+      url.searchParams.set("statement", filters.statement);
+    }
+    if (filters?.concept) {
+      url.searchParams.set("concept", filters.concept);
+    }
+
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(`Failed to export overrides: ${response.statusText}`);
+    }
+    return response.blob();
+  }
+
+  /**
+   * Import financial facts overrides from CSV
+   */
+  static async importFinancialFactsOverrides(
+    file: File,
+    updateExisting: boolean = false
+  ): Promise<ImportSummary> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const url = new URL(
+      `${API_BASE_URL}/admin/financial-facts-overrides/import`
     );
     url.searchParams.set("update_existing", updateExisting.toString());
 
