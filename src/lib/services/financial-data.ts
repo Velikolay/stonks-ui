@@ -2,6 +2,9 @@ import { StatementType } from "@/lib/services/protocol";
 
 const API_BASE_URL = "http://localhost:8000";
 
+// In-memory cache (dedupes concurrent requests too)
+const availableMetricsCache = new Map<string, Promise<FinancialMetric[]>>();
+
 interface RawFinancialMetric {
   normalized_label: string;
   statement: StatementType;
@@ -73,29 +76,49 @@ export interface FinancialFiling {
 export class FinancialDataService {
   static async getAvailableMetrics(
     ticker: string,
-    granularity: "yearly" | "quarterly"
+    granularity: "yearly" | "quarterly",
+    statement?: StatementType
   ): Promise<FinancialMetric[]> {
-    const response = await fetch(
-      `${API_BASE_URL}/financials/normalized-labels?ticker=${ticker}&granularity=${granularity}`
-    );
+    const cacheKey = `${ticker}__${granularity}__${statement ?? ""}`;
+    const cached = availableMetricsCache.get(cacheKey);
+    if (cached) return cached;
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch metrics: ${response.statusText}`);
-    }
+    const promise = (async () => {
+      const url = new URL(`${API_BASE_URL}/financials/normalized-labels`);
+      url.searchParams.set("ticker", ticker);
+      url.searchParams.set("granularity", granularity);
+      if (statement) {
+        url.searchParams.set("statement", statement);
+      }
 
-    const rawMetrics = await response.json();
+      const response = await fetch(url.toString());
 
-    // Filter out invalid metrics and create FinancialMetric instances
-    const filteredMetrics = rawMetrics
-      .filter(
-        (metric: RawFinancialMetric) =>
-          metric &&
-          metric.normalized_label &&
-          metric.normalized_label.trim() !== ""
-      )
-      .map((metric: RawFinancialMetric) => new FinancialMetric(metric));
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metrics: ${response.statusText}`);
+      }
 
-    return filteredMetrics;
+      const rawMetrics = await response.json();
+
+      // Filter out invalid metrics and create FinancialMetric instances
+      const filteredMetrics = rawMetrics
+        .filter(
+          (metric: RawFinancialMetric) =>
+            metric &&
+            metric.normalized_label &&
+            metric.normalized_label.trim() !== ""
+        )
+        .map((metric: RawFinancialMetric) => new FinancialMetric(metric));
+
+      return filteredMetrics;
+    })();
+
+    availableMetricsCache.set(cacheKey, promise);
+    promise.catch(() => {
+      // Don't permanently cache failures
+      availableMetricsCache.delete(cacheKey);
+    });
+
+    return promise;
   }
 
   static async getFinancialData(

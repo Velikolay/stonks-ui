@@ -661,7 +661,8 @@ export function FinancialTable({
       try {
         const metrics = await FinancialDataService.getAvailableMetrics(
           data.ticker,
-          data.granularity
+          data.granularity,
+          data.statement
         );
 
         // Find all metrics with the same normalized_label and statement
@@ -685,22 +686,6 @@ export function FinancialTable({
         // Handle error silently
         setAvailableDimensions([]);
         setSelectedDimension(null);
-      }
-
-      setChartLoading(true);
-      try {
-        const financialData = await FinancialDataService.getFinancialData(
-          data.ticker,
-          metric.normalized_label,
-          data.granularity,
-          undefined,
-          data.statement
-        );
-        setChartData(financialData);
-      } catch {
-        // Handle error silently or show user-friendly message
-      } finally {
-        setChartLoading(false);
       }
     },
     [data]
