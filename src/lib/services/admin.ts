@@ -619,14 +619,18 @@ export class AdminService {
 
   /**
    * Refresh financials data
+   * @param company_ids Optional company IDs to refresh (defaults to all companies when omitted)
    */
-  static async refreshFinancials(concurrent: boolean = true): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/admin/financials/refresh`, {
+  static async refreshFinancials(company_ids?: number[]): Promise<void> {
+    const url = new URL(`${API_BASE_URL}/admin/financials/refresh`);
+    if (company_ids && company_ids.length > 0) {
+      company_ids.forEach(id =>
+        url.searchParams.append("company_ids", id.toString())
+      );
+    }
+
+    const response = await fetch(url.toString(), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ concurrent }),
     });
 
     if (!response.ok) {

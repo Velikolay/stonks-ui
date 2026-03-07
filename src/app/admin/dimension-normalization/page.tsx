@@ -174,7 +174,6 @@ export default function DimensionNormalizationPage() {
   const [importResult, setImportResult] = useState<ImportSummary | null>(null);
   const [sortColumn, setSortColumn] = useState<SortableColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const [refreshConcurrent, setRefreshConcurrent] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshSuccess, setRefreshSuccess] = useState<string | null>(null);
 
@@ -363,10 +362,9 @@ export default function DimensionNormalizationPage() {
     setError(null);
     setRefreshSuccess(null);
     try {
-      await AdminService.refreshFinancials(refreshConcurrent);
-      setRefreshSuccess(
-        `Financials refreshed successfully (${refreshConcurrent ? "concurrent" : "synchronous"} mode)`
-      );
+      const companyIds = companyId === 0 ? undefined : [companyId];
+      await AdminService.refreshFinancials(companyIds);
+      setRefreshSuccess("Financials refreshed successfully");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to refresh financials"
@@ -522,21 +520,6 @@ export default function DimensionNormalizationPage() {
                   </Button>
 
                   <div className="w-full flex flex-wrap items-center justify-start lg:justify-end gap-2">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="refresh-concurrent"
-                        checked={refreshConcurrent}
-                        onChange={e => setRefreshConcurrent(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300"
-                      />
-                      <Label
-                        htmlFor="refresh-concurrent"
-                        className="cursor-pointer"
-                      >
-                        Concurrent
-                      </Label>
-                    </div>
                     <Button
                       onClick={handleRefreshFinancials}
                       variant="outline"
