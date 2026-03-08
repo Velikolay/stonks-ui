@@ -12,6 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+export type ToWeightOption = "__none__" | "-1" | "1";
+
 export type FinancialFactsOverrideFormData = {
   concept: string;
   statement: StatementType;
@@ -24,6 +26,7 @@ export type FinancialFactsOverrideFormData = {
   to_concept: string;
   to_axis: string;
   to_member: string;
+  to_weight: ToWeightOption;
 };
 
 interface FinancialFactsOverridesFormProps {
@@ -205,6 +208,28 @@ export const FinancialFactsOverridesForm = React.memo(
               placeholder="Optional target member"
             />
           </div>
+        </div>
+
+        <div>
+          <Label htmlFor={`${idPrefix}-to-weight`}>To Weight</Label>
+          <Select
+            value={formData.to_weight}
+            onValueChange={value =>
+              setFormData(prev => ({
+                ...prev,
+                to_weight: value as ToWeightOption,
+              }))
+            }
+          >
+            <SelectTrigger id={`${idPrefix}-to-weight`}>
+              <SelectValue placeholder="None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">None</SelectItem>
+              <SelectItem value="-1">-1</SelectItem>
+              <SelectItem value="1">1</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     );
