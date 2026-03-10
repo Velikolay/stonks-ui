@@ -128,6 +128,7 @@ type SortableColumn =
   | "to_concept"
   | "to_axis"
   | "to_member"
+  | "to_member_label"
   | "to_weight"
   | "is_global"
   | "updated_at";
@@ -222,6 +223,7 @@ export default function FinancialFactsOverridesPage() {
     to_concept: "",
     to_axis: "",
     to_member: "",
+    to_member_label: "",
     to_weight: "__none__",
   });
 
@@ -261,6 +263,7 @@ export default function FinancialFactsOverridesPage() {
       to_concept: "",
       to_axis: "",
       to_member: "",
+      to_member_label: "",
       to_weight: "__none__",
     });
     setIsCreateDialogOpen(true);
@@ -280,6 +283,7 @@ export default function FinancialFactsOverridesPage() {
       to_concept: override.to_concept,
       to_axis: override.to_axis || "",
       to_member: override.to_member || "",
+      to_member_label: override.to_member_label || "",
       to_weight:
         override.to_weight === -1
           ? "-1"
@@ -310,6 +314,7 @@ export default function FinancialFactsOverridesPage() {
         to_concept: formData.to_concept.trim(),
         to_axis: formData.to_axis.trim() || null,
         to_member: formData.to_member.trim() || null,
+        to_member_label: formData.to_member_label.trim() || null,
         to_weight:
           formData.to_weight === "__none__"
             ? null
@@ -337,6 +342,7 @@ export default function FinancialFactsOverridesPage() {
         to_concept: formData.to_concept.trim(),
         to_axis: formData.to_axis.trim() || null,
         to_member: formData.to_member.trim() || null,
+        to_member_label: formData.to_member_label.trim() || null,
         to_weight:
           formData.to_weight === "__none__"
             ? null
@@ -471,6 +477,8 @@ export default function FinancialFactsOverridesPage() {
           return (override.to_axis || "").toLowerCase();
         case "to_member":
           return (override.to_member || "").toLowerCase();
+        case "to_member_label":
+          return (override.to_member_label || "").toLowerCase();
         case "to_weight":
           return override.to_weight != null ? override.to_weight : 0;
         case "is_global":
@@ -771,6 +779,14 @@ export default function FinancialFactsOverridesPage() {
                           className="max-w-[260px]"
                         />
                         <SortableTableHead
+                          column="to_member_label"
+                          label="To Member Label"
+                          sortColumn={sortColumn}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                          className="max-w-[220px]"
+                        />
+                        <SortableTableHead
                           column="to_weight"
                           label="To Weight"
                           sortColumn={sortColumn}
@@ -846,6 +862,11 @@ export default function FinancialFactsOverridesPage() {
                           </TableCell>
                           <TableCell className="font-mono text-xs max-w-[260px] break-words whitespace-normal">
                             {override.to_member || (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="max-w-[220px] break-words whitespace-normal">
+                            {override.to_member_label || (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
@@ -969,8 +990,8 @@ export default function FinancialFactsOverridesPage() {
               Upload a CSV file to import financial fact overrides. Suggested
               headers: id (optional), company_id, statement, concept, axis,
               member, label, form_type, from_period, to_period, to_concept,
-              to_axis, to_member, to_weight. Note: update_existing only applies
-              when an id is present in the CSV.
+              to_axis, to_member, to_member_label, to_weight. Note:
+              update_existing only applies when an id is present in the CSV.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

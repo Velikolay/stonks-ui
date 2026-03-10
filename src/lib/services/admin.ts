@@ -51,6 +51,7 @@ export interface FinancialFactsOverride {
   to_concept: string;
   to_axis?: string | null;
   to_member?: string | null;
+  to_member_label?: string | null;
   to_weight?: number | null;
   is_global: boolean;
   created_at: string;
@@ -70,6 +71,7 @@ export type FinancialFactsOverrideCreate = {
   to_concept: string;
   to_axis?: string | null;
   to_member?: string | null;
+  to_member_label?: string | null;
   to_weight?: number | null;
 };
 
@@ -83,6 +85,7 @@ export type FinancialFactsOverrideUpdate = {
   to_concept?: string | null;
   to_axis?: string | null;
   to_member?: string | null;
+  to_member_label?: string | null;
   to_weight?: number | null;
 };
 

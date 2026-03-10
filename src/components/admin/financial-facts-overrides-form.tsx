@@ -26,6 +26,7 @@ export type FinancialFactsOverrideFormData = {
   to_concept: string;
   to_axis: string;
   to_member: string;
+  to_member_label: string;
   to_weight: ToWeightOption;
 };
 
@@ -208,6 +209,21 @@ export const FinancialFactsOverridesForm = React.memo(
               placeholder="Optional target member"
             />
           </div>
+        </div>
+
+        <div>
+          <Label htmlFor={`${idPrefix}-to-member-label`}>To Member Label</Label>
+          <Input
+            id={`${idPrefix}-to-member-label`}
+            value={formData.to_member_label}
+            onChange={e =>
+              setFormData(prev => ({
+                ...prev,
+                to_member_label: e.target.value,
+              }))
+            }
+            placeholder="Optional target member label"
+          />
         </div>
 
         <div>
