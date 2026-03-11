@@ -178,6 +178,21 @@ function normalizeDateCell(value?: string | null) {
   return dateOnly;
 }
 
+/** Renders null as — (wildcard), "" as (empty), else the value. */
+function formatOptionalString(value: string | null | undefined) {
+  if (value == null) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  if (value === "") {
+    return (
+      <span className="text-muted-foreground italic" title="Empty string">
+        (empty)
+      </span>
+    );
+  }
+  return value;
+}
+
 export default function FinancialFactsOverridesPage() {
   const [overrides, setOverrides] = useState<FinancialFactsOverride[]>([]);
   const [loading, setLoading] = useState(true);
@@ -225,6 +240,7 @@ export default function FinancialFactsOverridesPage() {
     to_member: "",
     to_member_label: "",
     to_weight: "__none__",
+    dimension_wildcard_enabled: false,
   });
 
   const fetchOverrides = useCallback(async () => {
@@ -265,6 +281,7 @@ export default function FinancialFactsOverridesPage() {
       to_member: "",
       to_member_label: "",
       to_weight: "__none__",
+      dimension_wildcard_enabled: false,
     });
     setIsCreateDialogOpen(true);
   };
@@ -290,6 +307,8 @@ export default function FinancialFactsOverridesPage() {
           : override.to_weight === 1
             ? "1"
             : "__none__",
+      dimension_wildcard_enabled:
+        override.axis == null && override.member == null,
     });
     setIsEditDialogOpen(true);
   };
@@ -305,8 +324,12 @@ export default function FinancialFactsOverridesPage() {
         company_id: companyId,
         concept: formData.concept.trim(),
         statement: formData.statement,
-        axis: formData.axis.trim() || null,
-        member: formData.member.trim() || null,
+        axis: formData.dimension_wildcard_enabled
+          ? null
+          : formData.axis.trim(),
+        member: formData.dimension_wildcard_enabled
+          ? null
+          : formData.member.trim(),
         label: formData.label.trim() || null,
         form_type: formData.form_type.trim() || null,
         from_period: formData.from_period || null,
@@ -333,8 +356,12 @@ export default function FinancialFactsOverridesPage() {
     if (!editingOverride) return;
     try {
       await AdminService.updateFinancialFactsOverride(editingOverride.id, {
-        axis: formData.axis.trim() || null,
-        member: formData.member.trim() || null,
+        axis: formData.dimension_wildcard_enabled
+          ? null
+          : formData.axis.trim(),
+        member: formData.dimension_wildcard_enabled
+          ? null
+          : formData.member.trim(),
         label: formData.label.trim() || null,
         form_type: formData.form_type.trim() || null,
         from_period: formData.from_period || null,
@@ -823,19 +850,13 @@ export default function FinancialFactsOverridesPage() {
                             {override.statement}
                           </TableCell>
                           <TableCell className="font-mono text-xs max-w-[260px] break-words whitespace-normal">
-                            {override.axis || (
-                              <span className="text-muted-foreground">—</span>
-                            )}
+                            {formatOptionalString(override.axis)}
                           </TableCell>
                           <TableCell className="font-mono text-xs max-w-[260px] break-words whitespace-normal">
-                            {override.member || (
-                              <span className="text-muted-foreground">—</span>
-                            )}
+                            {formatOptionalString(override.member)}
                           </TableCell>
                           <TableCell className="max-w-[220px] break-words whitespace-normal">
-                            {override.label || (
-                              <span className="text-muted-foreground">—</span>
-                            )}
+                            {formatOptionalString(override.label)}
                           </TableCell>
                           <TableCell className="font-mono text-xs break-words whitespace-normal">
                             {override.form_type || (
@@ -856,19 +877,13 @@ export default function FinancialFactsOverridesPage() {
                             {override.to_concept}
                           </TableCell>
                           <TableCell className="font-mono text-xs max-w-[260px] break-words whitespace-normal">
-                            {override.to_axis || (
-                              <span className="text-muted-foreground">—</span>
-                            )}
+                            {formatOptionalString(override.to_axis)}
                           </TableCell>
                           <TableCell className="font-mono text-xs max-w-[260px] break-words whitespace-normal">
-                            {override.to_member || (
-                              <span className="text-muted-foreground">—</span>
-                            )}
+                            {formatOptionalString(override.to_member)}
                           </TableCell>
                           <TableCell className="max-w-[220px] break-words whitespace-normal">
-                            {override.to_member_label || (
-                              <span className="text-muted-foreground">—</span>
-                            )}
+                            {formatOptionalString(override.to_member_label)}
                           </TableCell>
                           <TableCell className="text-right tabular-nums whitespace-normal">
                             {override.to_weight != null ? (

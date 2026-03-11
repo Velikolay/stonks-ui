@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 export type ToWeightOption = "__none__" | "-1" | "1";
 
@@ -28,6 +29,8 @@ export type FinancialFactsOverrideFormData = {
   to_member: string;
   to_member_label: string;
   to_weight: ToWeightOption;
+  /** When true, send null for axis/member (wildcard). When false, send trimmed values. */
+  dimension_wildcard_enabled: boolean;
 };
 
 interface FinancialFactsOverridesFormProps {
@@ -98,6 +101,30 @@ export const FinancialFactsOverridesForm = React.memo(
             </div>
           </>
         )}
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id={`${idPrefix}-dimension-wildcard`}
+            checked={formData.dimension_wildcard_enabled}
+            onCheckedChange={checked =>
+              setFormData(prev => ({
+                ...prev,
+                dimension_wildcard_enabled: checked,
+                ...(checked === false ? { axis: "", member: "" } : {}),
+              }))
+            }
+          />
+          <Label
+            htmlFor={`${idPrefix}-dimension-wildcard`}
+            className="cursor-pointer"
+          >
+            Dimension wildcard
+          </Label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          When enabled, axis and member are sent as null (match any). When
+          disabled, axis and member are sent as entered values.
+        </p>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
