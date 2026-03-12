@@ -324,9 +324,7 @@ export default function FinancialFactsOverridesPage() {
         company_id: companyId,
         concept: formData.concept.trim(),
         statement: formData.statement,
-        axis: formData.dimension_wildcard_enabled
-          ? null
-          : formData.axis.trim(),
+        axis: formData.dimension_wildcard_enabled ? null : formData.axis.trim(),
         member: formData.dimension_wildcard_enabled
           ? null
           : formData.member.trim(),
@@ -356,9 +354,7 @@ export default function FinancialFactsOverridesPage() {
     if (!editingOverride) return;
     try {
       await AdminService.updateFinancialFactsOverride(editingOverride.id, {
-        axis: formData.dimension_wildcard_enabled
-          ? null
-          : formData.axis.trim(),
+        axis: formData.dimension_wildcard_enabled ? null : formData.axis.trim(),
         member: formData.dimension_wildcard_enabled
           ? null
           : formData.member.trim(),
@@ -410,16 +406,8 @@ export default function FinancialFactsOverridesPage() {
       const a = document.createElement("a");
       a.href = url;
 
-      const companyPart = companyId === 0 ? "global" : `company-${companyId}`;
-      const stmtPart =
-        statementFilter === "all"
-          ? "all-statements"
-          : statementFilter.replace(/\s+/g, "-");
-      const conceptPart = conceptFilter.trim()
-        ? `concept-${conceptFilter.trim().replace(/\s+/g, "-")}`
-        : "all-concepts";
-
-      a.download = `financial-facts-overrides-${companyPart}-${stmtPart}-${conceptPart}.csv`;
+      const suffix = companyId === 0 ? "" : `-${companyId}`;
+      a.download = `financial-facts-overrides${suffix}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -316,11 +316,15 @@ export default function DimensionNormalizationPage() {
 
   const handleExport = async () => {
     try {
-      const blob = await AdminService.exportDimensionOverrides();
+      const blob = await AdminService.exportDimensionOverrides(
+        undefined,
+        companyId
+      );
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `dimension-normalization-overrides.csv`;
+      const suffix = companyId === 0 ? "" : `-${companyId}`;
+      a.download = `dimension-normalization-overrides${suffix}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

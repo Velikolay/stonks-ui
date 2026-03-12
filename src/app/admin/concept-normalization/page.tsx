@@ -364,16 +364,14 @@ export default function ConceptNormalizationPage() {
   const handleExport = async () => {
     try {
       const blob = await AdminService.exportConceptOverrides(
-        statementFilter === "all" ? undefined : statementFilter
+        statementFilter === "all" ? undefined : statementFilter,
+        companyId
       );
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `concept-normalization-overrides${
-        statementFilter !== "all"
-          ? `-${statementFilter.replace(/\s+/g, "-")}`
-          : ""
-      }.csv`;
+      const suffix = companyId === 0 ? "" : `-${companyId}`;
+      a.download = `concept-normalization-overrides${suffix}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

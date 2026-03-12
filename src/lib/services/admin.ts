@@ -262,7 +262,7 @@ export class AdminService {
     const url = new URL(
       `${API_BASE_URL}/admin/concept-normalization-overrides/export`
     );
-    if (companyId) {
+    if (companyId !== undefined && companyId > 0) {
       url.searchParams.set("company_id", companyId.toString());
     }
     if (statement) {
@@ -425,11 +425,19 @@ export class AdminService {
 
   /**
    * Export dimension normalization overrides as CSV
+   * When companyId is 0 or omitted, exports global scope (no company_id param).
+   * When companyId > 0, exports that company's overrides only.
    */
-  static async exportDimensionOverrides(axis?: string): Promise<Blob> {
+  static async exportDimensionOverrides(
+    axis?: string,
+    companyId?: number
+  ): Promise<Blob> {
     const url = new URL(
       `${API_BASE_URL}/admin/dimension-normalization-overrides/export`
     );
+    if (companyId !== undefined && companyId > 0) {
+      url.searchParams.set("company_id", companyId.toString());
+    }
     if (axis) {
       url.searchParams.set("axis", axis);
     }
@@ -576,7 +584,7 @@ export class AdminService {
     const url = new URL(
       `${API_BASE_URL}/admin/financial-facts-overrides/export`
     );
-    if (filters?.companyId !== undefined) {
+    if (filters?.companyId !== undefined && filters.companyId > 0) {
       url.searchParams.set("company_id", filters.companyId.toString());
     }
     if (filters?.statement) {
