@@ -18,27 +18,11 @@ import {
 } from "@/components/ui/select";
 import { FinancialChart } from "./financial-chart";
 import {
+  FinancialData,
   FinancialDataService,
   FinancialMetric,
 } from "@/lib/services/financial-data";
 import { STATEMENT_TYPES } from "@/lib/services/protocol";
-
-interface FinancialDataPoint {
-  date: string;
-  value: number;
-}
-
-interface FinancialDataSeries {
-  name: string;
-  data: FinancialDataPoint[];
-}
-
-interface FinancialData {
-  ticker: string;
-  metric: string;
-  granularity: "yearly" | "quarterly";
-  series: FinancialDataSeries[];
-}
 
 interface ChartsPageProps {
   ticker: string;

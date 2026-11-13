@@ -12,6 +12,46 @@ interface RawFinancialMetric {
   axis?: string;
 }
 
+interface RawMetricValue {
+  period_end: string;
+  value: string | number;
+  fiscal_quarter?: number;
+  breakdowns?: DimensionBreakdown[];
+}
+
+interface RawMetricSeries {
+  member?: string;
+  normalized_label?: string;
+  values?: RawMetricValue[];
+}
+
+function parseMetricSeries(raw: RawMetricSeries[]): FinancialDataSeries[] {
+  return raw.map(item => {
+    const data: FinancialDataPoint[] = (item.values || []).map(value => ({
+      date: value.period_end,
+      value:
+        typeof value.value === "number"
+          ? value.value
+          : parseFloat(value.value) || 0,
+      fiscal_quarter: value.fiscal_quarter,
+      breakdowns: value.breakdowns
+        ?.filter(breakdown => breakdown.axis && breakdown.members?.length)
+        .map(breakdown => ({
+          axis: breakdown.axis,
+          members: [...breakdown.members],
+          partial: breakdown.partial === true,
+        })),
+    }));
+
+    data.sort((a, b) => a.date.localeCompare(b.date));
+
+    return {
+      name: item.member || item.normalized_label || "Total",
+      data,
+    };
+  });
+}
+
 export class FinancialMetric {
   id: string;
   normalized_label: string;
@@ -28,10 +68,21 @@ export class FinancialMetric {
   }
 }
 
+/**
+ * Members of one axis that add up to the value they are attached to.
+ * `partial` means the members are a real split that falls short of that value.
+ */
+export interface DimensionBreakdown {
+  axis: string;
+  members: string[];
+  partial?: boolean;
+}
+
 export interface FinancialDataPoint {
   date: string;
   value: number;
   fiscal_quarter?: number;
+  breakdowns?: DimensionBreakdown[];
 }
 
 export interface FinancialDataSeries {
@@ -44,6 +95,11 @@ export interface FinancialData {
   metric: string;
   granularity: "yearly" | "quarterly";
   series: FinancialDataSeries[]; // Always use series-based approach
+  /**
+   * Undimensioned concept total. Present when `series` is one axis of that
+   * concept, so the chart can tell which members add up to it.
+   */
+  total?: FinancialDataSeries;
 }
 
 export interface StatementData {
@@ -128,6 +184,46 @@ export class FinancialDataService {
     axis?: string,
     statement?: StatementType
   ): Promise<FinancialData> {
+    // A dimension response is only the axis members. The concept total, fetched
+    // alongside it, carries the breakdowns that say which of those members add
+    // up to the concept for each period.
+    const [memberRaw, totalRaw] = await Promise.all([
+      this.fetchMetricSeries(
+        ticker,
+        normalizedLabel,
+        granularity,
+        statement,
+        axis
+      ),
+      axis
+        ? this.fetchMetricSeries(
+            ticker,
+            normalizedLabel,
+            granularity,
+            statement
+          )
+        : Promise.resolve(null),
+    ]);
+
+    const series = parseMetricSeries(memberRaw);
+    const total = totalRaw ? parseMetricSeries(totalRaw)[0] : undefined;
+
+    return {
+      ticker,
+      metric: normalizedLabel,
+      granularity,
+      series,
+      total,
+    };
+  }
+
+  private static async fetchMetricSeries(
+    ticker: string,
+    normalizedLabel: string,
+    granularity: "yearly" | "quarterly",
+    statement?: StatementType,
+    axis?: string
+  ): Promise<RawMetricSeries[]> {
     const url = new URL(`${API_BASE_URL}/financials/`);
     url.searchParams.set("ticker", ticker);
     url.searchParams.set("granularity", granularity);
@@ -147,84 +243,16 @@ export class FinancialDataService {
 
     const rawData = await response.json();
 
-    // Transform the API response to our expected format
-    // The API returns an array where each item represents a different axis member
-    // Each item has: ticker, normalized_label, statement, axis, member, values
-
-    let seriesToProcess;
+    // The API returns an array where each item is one axis member
+    // (or the undimensioned concept when no axis is requested).
     if (Array.isArray(rawData)) {
       if (rawData.length === 0) {
         throw new Error("Empty array received from API");
       }
-
-      const seriesCount = axis ? rawData.length : 1;
-      seriesToProcess = rawData.slice(0, seriesCount);
-    } else {
-      // Single object - normalize to array format
-      seriesToProcess = [rawData];
+      return axis ? rawData : rawData.slice(0, 1);
     }
 
-    // Transform to series format
-    const metricData = {
-      series: seriesToProcess.map(
-        (item: {
-          member?: string;
-          normalized_label?: string;
-          values?: Array<{
-            period_end: string;
-            value: string | number;
-            fiscal_quarter?: number;
-          }>;
-        }) => ({
-          name: item.member || item.normalized_label || "Total",
-          values: item.values || [],
-        })
-      ),
-    };
-
-    // Process series data
-    const series: FinancialDataSeries[] = metricData.series.map(
-      (seriesItem: {
-        name: string;
-        values: Array<{
-          period_end: string;
-          value: string | number;
-          fiscal_quarter?: number;
-        }>;
-      }) => {
-        const seriesData: FinancialDataPoint[] = (seriesItem.values || []).map(
-          (item: {
-            period_end: string;
-            value: string | number;
-            fiscal_quarter?: number;
-          }) => ({
-            date: item.period_end,
-            value:
-              typeof item.value === "number"
-                ? item.value
-                : parseFloat(item.value) || 0,
-            fiscal_quarter: item.fiscal_quarter,
-          })
-        );
-
-        // Sort by date (oldest first)
-        seriesData.sort(
-          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-        );
-
-        return {
-          name: seriesItem.name,
-          data: seriesData,
-        };
-      }
-    );
-
-    return {
-      ticker,
-      metric: normalizedLabel,
-      granularity,
-      series,
-    };
+    return [rawData];
   }
 
   static async getStatementData(

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
+  FinancialData,
   StatementData,
   FinancialDataService,
   FinancialFiling,
@@ -429,18 +430,7 @@ export function FinancialTable({
   const [selectedDimension, setSelectedDimension] = useState<string | null>(
     null
   );
-  const [chartData, setChartData] = useState<{
-    ticker: string;
-    metric: string;
-    granularity: "yearly" | "quarterly";
-    series: Array<{
-      name: string;
-      data: Array<{
-        date: string;
-        value: number;
-      }>;
-    }>;
-  } | null>(null);
+  const [chartData, setChartData] = useState<FinancialData | null>(null);
   const [chartLoading, setChartLoading] = useState(false);
   const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
   const [showGrowthLine, setShowGrowthLine] = useState<boolean>(false);
@@ -1055,7 +1045,7 @@ export function FinancialTable({
                   : ""}
             </DialogTitle>
           </DialogHeader>
-          <div className="h-[600px] mt-6">
+          <div className="mt-6 max-h-[80vh] overflow-y-auto">
             {chartLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-lg">Loading chart...</div>
