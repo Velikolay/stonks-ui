@@ -16,13 +16,35 @@ interface RawMetricValue {
   period_end: string;
   value: string | number;
   fiscal_quarter?: number;
-  breakdowns?: DimensionBreakdown[];
 }
 
 interface RawMetricSeries {
   member?: string;
   normalized_label?: string;
   values?: RawMetricValue[];
+  /** Alternative ways to split this series. Omitted unless labels were requested. */
+  breakdowns?: DimensionBreakdown[];
+}
+
+function parseBreakdowns(
+  breakdowns: DimensionBreakdown[] | undefined
+): DimensionBreakdown[] | undefined {
+  if (!breakdowns?.length) return undefined;
+  const parsed: DimensionBreakdown[] = [];
+  for (const breakdown of breakdowns) {
+    if (!breakdown.axis || !breakdown.members?.length) continue;
+    const members: string[] = [];
+    const seen = new Set<string>();
+    for (const member of breakdown.members) {
+      if (!member || seen.has(member)) continue;
+      seen.add(member);
+      members.push(member);
+    }
+    if (members.length > 0) {
+      parsed.push({ axis: breakdown.axis, members });
+    }
+  }
+  return parsed.length > 0 ? parsed : undefined;
 }
 
 function parseMetricSeries(raw: RawMetricSeries[]): FinancialDataSeries[] {
@@ -34,13 +56,6 @@ function parseMetricSeries(raw: RawMetricSeries[]): FinancialDataSeries[] {
           ? value.value
           : parseFloat(value.value) || 0,
       fiscal_quarter: value.fiscal_quarter,
-      breakdowns: value.breakdowns
-        ?.filter(breakdown => breakdown.axis && breakdown.members?.length)
-        .map(breakdown => ({
-          axis: breakdown.axis,
-          members: [...breakdown.members],
-          partial: breakdown.partial === true,
-        })),
     }));
 
     data.sort((a, b) => a.date.localeCompare(b.date));
@@ -48,6 +63,7 @@ function parseMetricSeries(raw: RawMetricSeries[]): FinancialDataSeries[] {
     return {
       name: item.member || item.normalized_label || "Total",
       data,
+      breakdowns: parseBreakdowns(item.breakdowns),
     };
   });
 }
@@ -68,26 +84,26 @@ export class FinancialMetric {
   }
 }
 
-/**
- * Members of one axis that add up to the value they are attached to.
- * `partial` means the members are a real split that falls short of that value.
- */
+/** One way to split the series it is attached to. Entries on the same series are alternatives. */
 export interface DimensionBreakdown {
   axis: string;
   members: string[];
-  partial?: boolean;
 }
 
 export interface FinancialDataPoint {
   date: string;
   value: number;
   fiscal_quarter?: number;
-  breakdowns?: DimensionBreakdown[];
 }
 
 export interface FinancialDataSeries {
   name: string;
   data: FinancialDataPoint[];
+  /**
+   * Alternative splits of this series. Present when the request asked for
+   * labels. Member amounts are on the axis response, matched by name and period.
+   */
+  breakdowns?: DimensionBreakdown[];
 }
 
 export interface FinancialData {
@@ -184,9 +200,9 @@ export class FinancialDataService {
     axis?: string,
     statement?: StatementType
   ): Promise<FinancialData> {
-    // A dimension response is only the axis members. The concept total, fetched
-    // alongside it, carries the breakdowns that say which of those members add
-    // up to the concept for each period.
+    // A dimension response is the axis members. The concept series, fetched
+    // alongside it, lists each way those members can split the concept.
+    // A member series can list its own splits, used to drill into that member.
     const [memberRaw, totalRaw] = await Promise.all([
       this.fetchMetricSeries(
         ticker,

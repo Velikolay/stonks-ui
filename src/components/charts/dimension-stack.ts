@@ -60,6 +60,8 @@ interface LeafDraft {
   group: string;
   nested: boolean;
   value: number;
+  /** Gray bar for the part of a drilled member its own split does not cover. */
+  conceptTotal?: boolean;
 }
 
 type PointIndex = Map<string, Map<string, FinancialDataPoint>>;
@@ -67,13 +69,17 @@ type PointIndex = Map<string, Map<string, FinancialDataPoint>>;
 /**
  * Build the bar stack for a chart.
  *
- * Dimension members overlap: a parent such as Products and the products that
- * add up to it are separate series. Plotting both would exceed the concept.
- * Each period's `breakdowns` list the members that sum to a value. A partial
- * breakdown is the same kind of split but falls short: those members are
- * still stacked, and the gap is a gray bar of the concept. A member expands
- * into its own breakdown only when that breakdown sums to the member. The
- * parent is then a group around those leaves, not a second bar.
+ * Each breakdown on the concept series is one way to split it. Two breakdowns
+ * on the same axis are alternatives: the chart shows one at a time and never
+ * mixes their members. For each period, only members that have a value are
+ * used. A member that is absent, but whose own breakdown has values, is drawn
+ * as those children, so product lines still appear in years before a Products
+ * subtotal was reported. The gap up to the concept is a gray bar named with
+ * the metric. A series the breakdowns never name is drawn only when its value
+ * closes that gap, which is how Other Products joins iPhone, iPad, and Mac in
+ * the years those lines added up. A gap below zero means that split does not
+ * apply to the period. A member that itself has breakdowns, such as Products,
+ * is drawn as those children when they do not exceed it.
  */
 export function resolveDimensionStack(
   data: FinancialData,
@@ -143,29 +149,20 @@ function stackFromBreakdowns(
   }
 
   const points = indexPoints(data.series);
+  const childLists = breakdownMap(data.series, axis);
+  const namedMembers = breakdownMemberNames(data, axis);
   const totalPoints = new Map(total.data.map(point => [point.date, point]));
   const dates = [...totalPoints.keys()].sort((a, b) => a.localeCompare(b));
+  const splits = (total.breakdowns ?? []).filter(
+    breakdown => breakdown.axis === axis && breakdown.members.length > 0
+  );
 
-  const partitionsByDate = new Map<string, Partition[]>();
-  for (const date of dates) {
-    const totalPoint = totalPoints.get(date);
-    const totalValue = totalPoint?.value;
-    if (totalValue == null) continue;
-    partitionsByDate.set(
-      date,
-      partitionsOfConcept(totalValue, totalPoint, date, axis, points)
-    );
-  }
-
-  const cuts = clusterCuts(dates, partitionsByDate);
-  if (!cuts) {
+  if (splits.length === 0) {
     const resolved = new Map<string, PeriodDraft>();
     for (const date of dates) {
-      const draft = draftForDate(
-        partitionsByDate.get(date) ?? [],
-        totalPoints.get(date)?.value
-      );
-      if (draft) resolved.set(date, draft);
+      const totalValue = totalPoints.get(date)?.value;
+      if (totalValue == null) continue;
+      resolved.set(date, { leaves: [], remainder: totalValue });
     }
     return {
       ...materialize(data.metric, dates, resolved, totalPoints, points),
@@ -174,25 +171,30 @@ function stackFromBreakdowns(
     };
   }
 
-  const built = cuts.map(cut => {
+  const built = splits.map(split => {
     const resolved = new Map<string, PeriodDraft>();
+    let exactPeriods = 0;
     for (const date of dates) {
-      const leaves = cut.byDate.get(date);
       const totalValue = totalPoints.get(date)?.value;
-      const draft =
-        leaves && leaves.length > 0
-          ? draftFromLeaves(leaves, totalValue)
-          : totalValue != null
-            ? { leaves: [], remainder: totalValue }
-            : null;
-      if (draft) resolved.set(date, draft);
+      if (totalValue == null) continue;
+      const draft = periodForSplit(
+        split.members,
+        totalValue,
+        date,
+        points,
+        childLists,
+        namedMembers
+      );
+      resolved.set(date, draft);
+      if (draft.leaves.length > 0 && draft.remainder === 0) exactPeriods += 1;
     }
     const view = materialize(data.metric, dates, resolved, totalPoints, points);
     return {
-      id: cut.id,
-      label: formatCutLabel(cut.labelMembers),
-      topRankCount: cut.topRankCount,
-      memberCount: cut.labelMembers.length,
+      id: memberSignature(split.members),
+      label: formatCutLabel(split.members),
+      members: split.members,
+      nested: split.members.filter(member => childLists.has(member)).length,
+      exactPeriods,
       segments: view.segments,
       values: view.values,
       periods: view.periods,
@@ -201,13 +203,27 @@ function stackFromBreakdowns(
   });
 
   built.sort((a, b) => {
-    if (b.topRankCount !== a.topRankCount)
-      return b.topRankCount - a.topRankCount;
-    if (b.memberCount !== a.memberCount) return b.memberCount - a.memberCount;
+    if (b.nested !== a.nested) return b.nested - a.nested;
+    if (b.members.length !== a.members.length) {
+      return b.members.length - a.members.length;
+    }
+    if (b.exactPeriods !== a.exactPeriods) return b.exactPeriods - a.exactPeriods;
     return a.label.localeCompare(b.label);
   });
 
   const [preferred] = built;
+  if (built.length < 2) {
+    return {
+      segments: preferred.segments,
+      dates,
+      values: preferred.values,
+      periods: preferred.periods,
+      fiscalQuarter: preferred.fiscalQuarter,
+      cuts: [],
+      defaultCutId: null,
+    };
+  }
+
   return {
     segments: preferred.segments,
     dates,
@@ -225,184 +241,343 @@ function stackFromBreakdowns(
   };
 }
 
-interface Partition {
-  signature: string;
-  members: string[];
+/** Member name to the alternative child splits reported on that member's series. */
+function breakdownMap(
+  series: FinancialDataSeries[],
+  axis: string
+): Map<string, string[][]> {
+  const map = new Map<string, string[][]>();
+  for (const item of series) {
+    const lists = (item.breakdowns ?? [])
+      .filter(breakdown => breakdown.axis === axis && breakdown.members.length > 0)
+      .map(breakdown => breakdown.members);
+    if (lists.length > 0) map.set(item.name, lists);
+  }
+  return map;
+}
+
+/** Every member named by a breakdown on this axis, including child splits. */
+function breakdownMemberNames(data: FinancialData, axis: string): Set<string> {
+  const names = new Set<string>();
+  const lists = [
+    ...(data.total?.breakdowns ?? []),
+    ...data.series.flatMap(item => item.breakdowns ?? []),
+  ];
+  for (const breakdown of lists) {
+    if (breakdown.axis !== axis) continue;
+    for (const member of breakdown.members) names.add(member);
+  }
+  return names;
+}
+
+/**
+ * One concept breakdown for one period.
+ * Absent members are skipped. When an absent member's children have values,
+ * those children stand in for it. A negative gap rejects the split.
+ */
+function periodForSplit(
+  members: string[],
+  totalValue: number,
+  date: string,
+  points: PointIndex,
+  childLists: Map<string, string[][]>,
+  namedMembers: Set<string>
+): PeriodDraft {
+  const stoodIn = assemblePeriod(members, date, points, childLists, true);
+  if (
+    stoodIn.leaves.length > 0 &&
+    stoodIn.memberSum - totalValue <= tolerance(totalValue)
+  ) {
+    return closeGap(stoodIn, totalValue, date, points, namedMembers);
+  }
+
+  const reported = assemblePeriod(members, date, points, childLists, false);
+  if (
+    reported.leaves.length === 0 ||
+    reported.memberSum - totalValue > tolerance(totalValue)
+  ) {
+    return { leaves: [], remainder: totalValue };
+  }
+  return closeGap(reported, totalValue, date, points, namedMembers);
+}
+
+interface AssembledPeriod {
   leaves: LeafDraft[];
-  /** Members sum to the concept. False when the breakdown is a shortfall. */
-  exact: boolean;
+  memberSum: number;
+  /** Parent replaced by its children. Set only when exactly one parent was. */
+  substituted: string | null;
+}
+
+function assemblePeriod(
+  members: string[],
+  date: string,
+  points: PointIndex,
+  childLists: Map<string, string[][]>,
+  allowStandIn: boolean
+): AssembledPeriod {
+  const leaves: LeafDraft[] = [];
+  let memberSum = 0;
+  let substituted: string | null = null;
+  let substitutions = 0;
+  const splitMembers = new Set(members);
+
+  for (const member of members) {
+    const own = points.get(member)?.get(date)?.value;
+    if (own != null) {
+      memberSum += own;
+      leaves.push(
+        ...drillMember(
+          member,
+          own,
+          date,
+          member,
+          false,
+          points,
+          childLists,
+          new Set()
+        )
+      );
+      continue;
+    }
+    if (!allowStandIn) continue;
+    const standIn = childrenInstead(
+      member,
+      date,
+      points,
+      childLists,
+      splitMembers
+    );
+    if (!standIn) continue;
+    memberSum += sumLeaves(standIn);
+    leaves.push(...standIn);
+    substitutions += 1;
+    substituted = member;
+  }
+
+  return {
+    leaves,
+    memberSum,
+    substituted: substitutions === 1 ? substituted : null,
+  };
+}
+
+/**
+ * Children of a member that was not reported this period.
+ * They keep the parent's legend group, since they are that member's breakdown.
+ */
+function childrenInstead(
+  name: string,
+  date: string,
+  points: PointIndex,
+  childLists: Map<string, string[][]>,
+  splitMembers: Set<string>
+): LeafDraft[] | null {
+  const ancestors = new Set([name]);
+  for (const members of rankChildLists(childLists.get(name) ?? [], childLists)) {
+    const present = members.filter(
+      member =>
+        member !== name &&
+        !splitMembers.has(member) &&
+        points.get(member)?.has(date)
+    );
+    if (present.length === 0) continue;
+
+    const leaves: LeafDraft[] = [];
+    for (const child of present) {
+      const childValue = points.get(child)?.get(date)?.value ?? 0;
+      leaves.push(
+        ...drillMember(
+          child,
+          childValue,
+          date,
+          name,
+          true,
+          points,
+          childLists,
+          ancestors
+        )
+      );
+    }
+    return leaves;
+  }
+  return null;
+}
+
+/**
+ * Draw unnamed series only when they make this period add up.
+ * Other Products is the case: it is no longer its own concept split, and it
+ * is not a child of Products, but with iPhone, iPad, and Mac it closes the
+ * years before the Products subtotal.
+ */
+function closeGap(
+  assembled: AssembledPeriod,
+  totalValue: number,
+  date: string,
+  points: PointIndex,
+  namedMembers: Set<string>
+): PeriodDraft {
+  let remainder = unallocated(assembled.memberSum, totalValue);
+  if (remainder === 0) return { leaves: assembled.leaves, remainder };
+
+  const used = new Set(assembled.leaves.map(leaf => leaf.name));
+  const extra = exactFillers(date, remainder, used, namedMembers, points);
+  if (!extra) return { leaves: assembled.leaves, remainder };
+
+  const group = assembled.substituted;
+  for (const leaf of extra) {
+    if (group) {
+      leaf.group = group;
+      leaf.nested = true;
+    }
+    assembled.leaves.push(leaf);
+  }
+  return { leaves: assembled.leaves, remainder: 0 };
+}
+
+function exactFillers(
+  date: string,
+  remainder: number,
+  used: Set<string>,
+  namedMembers: Set<string>,
+  points: PointIndex
+): LeafDraft[] | null {
+  const candidates: Array<{ name: string; value: number }> = [];
+  for (const [name, byDate] of points) {
+    if (used.has(name) || namedMembers.has(name)) continue;
+    const value = byDate.get(date)?.value;
+    if (value == null || value <= 0) continue;
+    if (value - remainder > tolerance(remainder)) continue;
+    candidates.push({ name, value });
+  }
+  candidates.sort((a, b) => a.name.localeCompare(b.name));
+  if (candidates.length === 0 || candidates.length > 16) return null;
+
+  let bestMask: number | null = null;
+  let bestCount = -1;
+  let bestKey = "";
+  for (let mask = 1; mask < 1 << candidates.length; mask += 1) {
+    let sum = 0;
+    let count = 0;
+    const names: string[] = [];
+    for (let index = 0; index < candidates.length; index += 1) {
+      if ((mask & (1 << index)) === 0) continue;
+      sum += candidates[index].value;
+      count += 1;
+      names.push(candidates[index].name);
+    }
+    if (!sumsMatch(sum, remainder)) continue;
+    const key = names.join("\0");
+    if (
+      count > bestCount ||
+      (count === bestCount && (bestMask == null || key < bestKey))
+    ) {
+      bestCount = count;
+      bestMask = mask;
+      bestKey = key;
+    }
+  }
+  if (bestMask == null) return null;
+
+  const leaves: LeafDraft[] = [];
+  for (let index = 0; index < candidates.length; index += 1) {
+    if ((bestMask & (1 << index)) === 0) continue;
+    const candidate = candidates[index];
+    leaves.push({
+      name: candidate.name,
+      group: candidate.name,
+      nested: false,
+      value: candidate.value,
+    });
+  }
+  return leaves;
+}
+
+function rankChildLists(
+  lists: string[][],
+  childLists: Map<string, string[][]>
+): string[][] {
+  return [...lists].sort((a, b) => {
+    const aNested = a.filter(member => childLists.has(member)).length;
+    const bNested = b.filter(member => childLists.has(member)).length;
+    if (bNested !== aNested) return bNested - aNested;
+    if (b.length !== a.length) return b.length - a.length;
+    return a.join("\0").localeCompare(b.join("\0"));
+  });
+}
+
+/**
+ * Replace a member with its own breakdown when that breakdown does not exceed
+ * the member. A shortfall stays as a gray bar named with the member.
+ */
+function drillMember(
+  name: string,
+  own: number,
+  date: string,
+  group: string,
+  nested: boolean,
+  points: PointIndex,
+  childLists: Map<string, string[][]>,
+  ancestors: Set<string>
+): LeafDraft[] {
+  const self: LeafDraft = { name, group, nested, value: own };
+  if (ancestors.has(name)) return [self];
+
+  const lists = rankChildLists(childLists.get(name) ?? [], childLists);
+
+  const nextAncestors = new Set(ancestors);
+  nextAncestors.add(name);
+  let bestShort: LeafDraft[] | null = null;
+  let bestCoverage = -Infinity;
+
+  for (const members of lists) {
+    const present = members.filter(
+      member => member !== name && points.get(member)?.has(date) && !nextAncestors.has(member)
+    );
+    if (present.length === 0) continue;
+
+    const leaves: LeafDraft[] = [];
+    for (const child of present) {
+      const childValue = points.get(child)?.get(date)?.value ?? 0;
+      leaves.push(
+        ...drillMember(
+          child,
+          childValue,
+          date,
+          group,
+          true,
+          points,
+          childLists,
+          nextAncestors
+        )
+      );
+    }
+    const covered = sumLeaves(leaves);
+    const gap = own - covered;
+    if (gap < -tolerance(own)) continue;
+    if (sumsMatch(covered, own)) return leaves;
+
+    if (covered > bestCoverage) {
+      bestCoverage = covered;
+      bestShort = [
+        ...leaves,
+        {
+          name,
+          group: name,
+          nested: false,
+          value: gap,
+          conceptTotal: true,
+        },
+      ];
+    }
+  }
+
+  return bestShort ?? [self];
 }
 
 /** Leaves for one period, plus the concept gap drawn in gray. */
 interface PeriodDraft {
   leaves: LeafDraft[];
   remainder: number;
-}
-
-interface MemberList {
-  members: string[];
-  partial: boolean;
-}
-
-interface CutAccumulator {
-  id: string;
-  labelMembers: string[];
-  memberSets: string[][];
-  topRankCount: number;
-  byDate: Map<string, LeafDraft[]>;
-}
-
-/**
- * Group co-existing splits into mutually exclusive cuts.
- * A single evolving split (no period reports two of them) stays one cut.
- */
-function clusterCuts(
-  dates: string[],
-  partitionsByDate: Map<string, Partition[]>
-): CutAccumulator[] | null {
-  const hasAlternative = [...partitionsByDate.values()].some(
-    list => list.length > 1
-  );
-  if (!hasAlternative) return null;
-
-  const cuts: CutAccumulator[] = [];
-  const newestFirst = [...dates].sort((a, b) => b.localeCompare(a));
-  for (const date of newestFirst) {
-    const partitions = partitionsByDate.get(date) ?? [];
-    const used = new Set<CutAccumulator>();
-    partitions.forEach((partition, index) => {
-      let best: { cut: CutAccumulator; score: number } | null = null;
-      for (const cut of cuts) {
-        if (used.has(cut)) continue;
-        const score = cut.memberSets.reduce(
-          (max, members) => Math.max(max, affinity(members, partition.members)),
-          0
-        );
-        if (!best || score > best.score) best = { cut, score };
-      }
-
-      let cut: CutAccumulator;
-      if (best && best.score >= 0.5) {
-        cut = best.cut;
-      } else {
-        cut = {
-          id: partition.signature,
-          labelMembers: partition.members,
-          memberSets: [],
-          topRankCount: 0,
-          byDate: new Map(),
-        };
-        cuts.push(cut);
-      }
-      used.add(cut);
-      if (
-        !cut.memberSets.some(
-          members => memberSignature(members) === partition.signature
-        )
-      ) {
-        cut.memberSets.push(partition.members);
-      }
-      if (index === 0) cut.topRankCount += 1;
-      cut.byDate.set(date, partition.leaves);
-    });
-  }
-
-  return cuts.length > 1 ? cuts : null;
-}
-
-function partitionsOfConcept(
-  totalValue: number,
-  totalPoint: FinancialDataPoint | undefined,
-  date: string,
-  axis: string,
-  points: PointIndex
-): Partition[] {
-  const ranked = rankBreakdowns(
-    breakdownLists(totalPoint, axis),
-    date,
-    axis,
-    points
-  );
-  const found: Partition[] = [];
-  for (const list of ranked) {
-    const leaves = tryPartition(list.members, date, axis, points);
-    if (!leaves || leaves.length === 0) continue;
-    const sum = sumLeaves(leaves);
-    if (sum === 0) continue;
-    const exact = sumsMatch(sum, totalValue);
-    // A partial breakdown is a known split that falls short. Anything over
-    // the concept would stack past the total, so it is left out.
-    if (!exact && (!list.partial || sum > totalValue)) continue;
-    // A finer split already covers these members.
-    if (found.some(partition => isSubset(list.members, partition.members))) {
-      continue;
-    }
-    const signature = memberSignature(list.members);
-    if (found.some(partition => partition.signature === signature)) continue;
-    found.push({ signature, members: [...list.members], leaves, exact });
-  }
-  // A short list that only repeats pieces of a complete split is the same
-  // story with holes, so it is not a second cut.
-  const complete = found.filter(partition => partition.exact);
-  if (complete.length === 0) return found;
-  const covered = new Set<string>();
-  for (const partition of complete) {
-    for (const member of partition.members) covered.add(member);
-    for (const leaf of partition.leaves) covered.add(leaf.name);
-  }
-  return [
-    ...complete,
-    ...found.filter(
-      partition =>
-        !partition.exact &&
-        partition.leaves.some(leaf => !covered.has(leaf.name))
-    ),
-  ];
-}
-
-function draftForDate(
-  partitions: Partition[],
-  totalValue: number | undefined
-): PeriodDraft | null {
-  if (partitions.length > 0 && totalValue != null) {
-    return draftFromLeaves(partitions[0].leaves, totalValue);
-  }
-  if (totalValue != null) return { leaves: [], remainder: totalValue };
-  return null;
-}
-
-function draftFromLeaves(
-  leaves: LeafDraft[],
-  totalValue: number | undefined
-): PeriodDraft {
-  if (totalValue == null) return { leaves, remainder: 0 };
-  return { leaves, remainder: unallocated(sumLeaves(leaves), totalValue) };
-}
-
-function tryPartition(
-  members: string[],
-  date: string,
-  axis: string,
-  points: PointIndex
-): LeafDraft[] | null {
-  const seen = new Set<string>();
-  const leaves: LeafDraft[] = [];
-  for (const member of members) {
-    const expanded = expandMember(
-      member,
-      date,
-      member,
-      false,
-      axis,
-      points,
-      seen
-    );
-    if (!expanded) return null;
-    for (const leaf of expanded) seen.add(leaf.name);
-    seen.add(member);
-    leaves.push(...expanded);
-  }
-  return leaves;
 }
 
 function materialize(
@@ -415,9 +590,33 @@ function materialize(
   DimensionStack,
   "segments" | "dates" | "values" | "periods" | "fiscalQuarter"
 > {
-  const leafNames = new Set<string>();
+  const plainNames = new Set<string>();
+  const remainderNames = new Set<string>();
   for (const period of resolved.values()) {
-    for (const leaf of period.leaves) leafNames.add(leaf.name);
+    for (const leaf of period.leaves) {
+      if (leaf.conceptTotal) remainderNames.add(leaf.name);
+      else plainNames.add(leaf.name);
+    }
+  }
+  const taken = new Set<string>([...plainNames, ...remainderNames]);
+  const remainderAlias = new Map<string, string>();
+  for (const name of remainderNames) {
+    if (!plainNames.has(name)) continue;
+    const alias = unusedName(`${name} (remainder)`, taken);
+    remainderAlias.set(name, alias);
+    taken.add(alias);
+  }
+  const displayName = (leaf: LeafDraft) =>
+    leaf.conceptTotal ? (remainderAlias.get(leaf.name) ?? leaf.name) : leaf.name;
+
+  const leafNames = new Set<string>();
+  const conceptLeafNames = new Set<string>();
+  for (const period of resolved.values()) {
+    for (const leaf of period.leaves) {
+      const name = displayName(leaf);
+      leafNames.add(name);
+      if (leaf.conceptTotal) conceptLeafNames.add(name);
+    }
   }
 
   const conceptName = unusedName(metric, leafNames);
@@ -429,17 +628,17 @@ function materialize(
     const period = resolved.get(date);
     if (!period) continue;
     for (const leaf of period.leaves) {
-      if (leaf.nested && !nestedGroup.has(leaf.name)) {
-        nestedGroup.set(leaf.name, leaf.group);
+      if (leaf.nested && !leaf.conceptTotal && !nestedGroup.has(displayName(leaf))) {
+        nestedGroup.set(displayName(leaf), leaf.group);
       }
     }
   }
 
   const segments: StackSegment[] = [...leafNames].map(name => ({
     name,
-    group: nestedGroup.get(name) ?? name,
-    nested: nestedGroup.has(name),
-    conceptTotal: false,
+    group: conceptLeafNames.has(name) ? name : (nestedGroup.get(name) ?? name),
+    nested: nestedGroup.has(name) && !conceptLeafNames.has(name),
+    conceptTotal: conceptLeafNames.has(name),
   }));
   if (needsConcept) {
     segments.push({
@@ -456,7 +655,12 @@ function materialize(
 
   for (const date of dates) {
     const period = resolved.get(date);
-    const periodLeaves: PeriodLeaf[] = [...(period?.leaves ?? [])];
+    const periodLeaves: PeriodLeaf[] = (period?.leaves ?? []).map(leaf => ({
+      name: displayName(leaf),
+      group: leaf.conceptTotal ? displayName(leaf) : leaf.group,
+      nested: leaf.nested && !leaf.conceptTotal,
+      value: leaf.value,
+    }));
     if (period && period.remainder > 0) {
       periodLeaves.push({
         name: conceptName,
@@ -517,139 +721,8 @@ function memberSignature(members: string[]): string {
   return [...members].sort((a, b) => a.localeCompare(b)).join("\0");
 }
 
-function jaccard(leftMembers: string[], rightMembers: string[]): number {
-  const left = new Set(leftMembers);
-  const right = new Set(rightMembers);
-  let intersection = 0;
-  for (const member of left) {
-    if (right.has(member)) intersection += 1;
-  }
-  const union = left.size + right.size - intersection;
-  return union === 0 ? 1 : intersection / union;
-}
-
-/** Same split across years, including a year that reports only some members. */
-function affinity(leftMembers: string[], rightMembers: string[]): number {
-  if (
-    isSubset(leftMembers, rightMembers) ||
-    isSubset(rightMembers, leftMembers)
-  ) {
-    return 1;
-  }
-  return jaccard(leftMembers, rightMembers);
-}
-
-function isSubset(subset: string[], superset: string[]): boolean {
-  if (subset.length > superset.length) return false;
-  const set = new Set(superset);
-  return subset.every(member => set.has(member));
-}
-
-function expandMember(
-  name: string,
-  date: string,
-  group: string,
-  nested: boolean,
-  axis: string,
-  points: PointIndex,
-  seen: Set<string>
-): LeafDraft[] | null {
-  if (seen.has(name)) return null;
-
-  const point = points.get(name)?.get(date);
-  const own = point ? point.value : null;
-  const nextSeen = new Set(seen);
-  nextSeen.add(name);
-
-  for (const list of rankBreakdowns(
-    breakdownLists(point, axis),
-    date,
-    axis,
-    points
-  )) {
-    // A short child list stays collapsed into the member. The gray bar is the
-    // gap against the concept, not a second remainder inside the parent.
-    if (list.partial) continue;
-    const leaves: LeafDraft[] = [];
-    let ok = true;
-    const childSeen = new Set(nextSeen);
-    for (const child of list.members) {
-      const expanded = expandMember(
-        child,
-        date,
-        group,
-        true,
-        axis,
-        points,
-        childSeen
-      );
-      if (!expanded) {
-        ok = false;
-        break;
-      }
-      for (const leaf of expanded) childSeen.add(leaf.name);
-      childSeen.add(child);
-      leaves.push(...expanded);
-    }
-    if (!ok || leaves.length === 0) continue;
-    if (own == null || sumsMatch(sumLeaves(leaves), own)) return leaves;
-  }
-
-  if (own == null) return null;
-  return [{ name, group, nested, value: own }];
-}
-
-function breakdownLists(
-  point: FinancialDataPoint | undefined,
-  axis: string
-): MemberList[] {
-  if (!point?.breakdowns?.length) return [];
-  const lists: MemberList[] = [];
-  for (const breakdown of point.breakdowns) {
-    if (breakdown.axis !== axis) continue;
-    const members: string[] = [];
-    const seen = new Set<string>();
-    for (const member of breakdown.members) {
-      if (!member || seen.has(member)) continue;
-      seen.add(member);
-      members.push(member);
-    }
-    if (members.length > 0) {
-      lists.push({ members, partial: breakdown.partial === true });
-    }
-  }
-  return lists;
-}
-
-function rankBreakdowns(
-  lists: MemberList[],
-  date: string,
-  axis: string,
-  points: PointIndex
-): MemberList[] {
-  return [...lists].sort((a, b) => {
-    if (a.partial !== b.partial) return a.partial ? 1 : -1;
-    const aScore = breakdownScore(a.members, date, axis, points);
-    const bScore = breakdownScore(b.members, date, axis, points);
-    if (bScore[0] !== aScore[0]) return bScore[0] - aScore[0];
-    if (bScore[1] !== aScore[1]) return bScore[1] - aScore[1];
-    return a.members.join("\0").localeCompare(b.members.join("\0"));
-  });
-}
-
-/** Prefer a split whose members themselves break down, then the finer split. */
-function breakdownScore(
-  members: string[],
-  date: string,
-  axis: string,
-  points: PointIndex
-): [number, number] {
-  let nested = 0;
-  for (const member of members) {
-    const point = points.get(member)?.get(date);
-    if (breakdownLists(point, axis).length > 0) nested += 1;
-  }
-  return [nested, members.length];
+function tolerance(value: number): number {
+  return Math.max(SUM_ABS_TOLERANCE, Math.abs(value) * SUM_REL_TOLERANCE);
 }
 
 function sumsMatch(sum: number, target: number): boolean {
