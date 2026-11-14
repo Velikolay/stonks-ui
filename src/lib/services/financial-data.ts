@@ -22,7 +22,7 @@ interface RawMetricSeries {
   member?: string;
   normalized_label?: string;
   values?: RawMetricValue[];
-  /** Alternative ways to split this series. Omitted unless labels were requested. */
+  /** Alternative ways to split this series. Present when breakdowns were requested. */
   breakdowns?: DimensionBreakdown[];
 }
 
@@ -100,8 +100,9 @@ export interface FinancialDataSeries {
   name: string;
   data: FinancialDataPoint[];
   /**
-   * Alternative splits of this series. Present when the request asked for
-   * labels. Member amounts are on the axis response, matched by name and period.
+   * Alternative splits of this series. Present when the request set
+   * `breakdowns`. Member amounts are on the axis response, matched by name
+   * and period.
    */
   breakdowns?: DimensionBreakdown[];
 }
@@ -250,6 +251,10 @@ export class FinancialDataService {
     if (axis) {
       url.searchParams.set("axis", axis);
     }
+    // Breakdowns are omitted unless the chart asks for them. The concept
+    // series lists each split; a member series lists the splits used to drill
+    // into that member.
+    url.searchParams.set("breakdowns", "true");
 
     const response = await fetch(url.toString());
 

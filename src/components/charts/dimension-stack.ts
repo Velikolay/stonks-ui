@@ -207,7 +207,8 @@ function stackFromBreakdowns(
     if (b.members.length !== a.members.length) {
       return b.members.length - a.members.length;
     }
-    if (b.exactPeriods !== a.exactPeriods) return b.exactPeriods - a.exactPeriods;
+    if (b.exactPeriods !== a.exactPeriods)
+      return b.exactPeriods - a.exactPeriods;
     return a.label.localeCompare(b.label);
   });
 
@@ -249,7 +250,9 @@ function breakdownMap(
   const map = new Map<string, string[][]>();
   for (const item of series) {
     const lists = (item.breakdowns ?? [])
-      .filter(breakdown => breakdown.axis === axis && breakdown.members.length > 0)
+      .filter(
+        breakdown => breakdown.axis === axis && breakdown.members.length > 0
+      )
       .map(breakdown => breakdown.members);
     if (lists.length > 0) map.set(item.name, lists);
   }
@@ -373,7 +376,10 @@ function childrenInstead(
   splitMembers: Set<string>
 ): LeafDraft[] | null {
   const ancestors = new Set([name]);
-  for (const members of rankChildLists(childLists.get(name) ?? [], childLists)) {
+  for (const members of rankChildLists(
+    childLists.get(name) ?? [],
+    childLists
+  )) {
     const present = members.filter(
       member =>
         member !== name &&
@@ -416,7 +422,7 @@ function closeGap(
   points: PointIndex,
   namedMembers: Set<string>
 ): PeriodDraft {
-  let remainder = unallocated(assembled.memberSum, totalValue);
+  const remainder = unallocated(assembled.memberSum, totalValue);
   if (remainder === 0) return { leaves: assembled.leaves, remainder };
 
   const used = new Set(assembled.leaves.map(leaf => leaf.name));
@@ -531,7 +537,10 @@ function drillMember(
 
   for (const members of lists) {
     const present = members.filter(
-      member => member !== name && points.get(member)?.has(date) && !nextAncestors.has(member)
+      member =>
+        member !== name &&
+        points.get(member)?.has(date) &&
+        !nextAncestors.has(member)
     );
     if (present.length === 0) continue;
 
@@ -607,7 +616,9 @@ function materialize(
     taken.add(alias);
   }
   const displayName = (leaf: LeafDraft) =>
-    leaf.conceptTotal ? (remainderAlias.get(leaf.name) ?? leaf.name) : leaf.name;
+    leaf.conceptTotal
+      ? (remainderAlias.get(leaf.name) ?? leaf.name)
+      : leaf.name;
 
   const leafNames = new Set<string>();
   const conceptLeafNames = new Set<string>();
@@ -628,7 +639,11 @@ function materialize(
     const period = resolved.get(date);
     if (!period) continue;
     for (const leaf of period.leaves) {
-      if (leaf.nested && !leaf.conceptTotal && !nestedGroup.has(displayName(leaf))) {
+      if (
+        leaf.nested &&
+        !leaf.conceptTotal &&
+        !nestedGroup.has(displayName(leaf))
+      ) {
         nestedGroup.set(displayName(leaf), leaf.group);
       }
     }
