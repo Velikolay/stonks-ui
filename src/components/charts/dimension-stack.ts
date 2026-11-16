@@ -6,6 +6,9 @@ import {
 
 const SUM_ABS_TOLERANCE = 1;
 const SUM_REL_TOLERANCE = 1e-6;
+// A restated quarter can leave the year-to-date roll-forward about a million
+// dollars off a hundred-billion total. That miss is still the hedge.
+const OVERAGE_REL_TOLERANCE = 1e-5;
 
 export interface StackSegment {
   name: string;
@@ -276,7 +279,8 @@ function breakdownMemberNames(data: FinancialData, axis: string): Set<string> {
 /**
  * One concept breakdown for one period.
  * Absent members are skipped. When an absent member's children have values,
- * those children stand in for it. A negative gap rejects the split.
+ * those children stand in for it. A split that runs past the total is kept
+ * when an omitted negative series, such as hedging losses, closes the gap.
  */
 function periodForSplit(
   members: string[],
@@ -287,19 +291,25 @@ function periodForSplit(
   namedMembers: Set<string>
 ): PeriodDraft {
   const stoodIn = assemblePeriod(members, date, points, childLists, true);
-  if (
-    stoodIn.leaves.length > 0 &&
-    stoodIn.memberSum - totalValue <= tolerance(totalValue)
-  ) {
-    return closeGap(stoodIn, totalValue, date, points, namedMembers);
+  if (stoodIn.leaves.length > 0) {
+    if (stoodIn.memberSum - totalValue <= tolerance(totalValue)) {
+      return closeGap(stoodIn, totalValue, date, points, namedMembers);
+    }
+    const closed = closeOverage(stoodIn, totalValue, date, points);
+    if (closed) return closed;
   }
 
   const reported = assemblePeriod(members, date, points, childLists, false);
-  if (
-    reported.leaves.length === 0 ||
-    reported.memberSum - totalValue > tolerance(totalValue)
-  ) {
+  if (reported.leaves.length === 0) {
     return { leaves: [], remainder: totalValue };
+  }
+  if (reported.memberSum - totalValue > tolerance(totalValue)) {
+    return (
+      closeOverage(reported, totalValue, date, points) ?? {
+        leaves: [],
+        remainder: totalValue,
+      }
+    );
   }
   return closeGap(reported, totalValue, date, points, namedMembers);
 }
@@ -438,6 +448,93 @@ function closeGap(
     assembled.leaves.push(leaf);
   }
   return { leaves: assembled.leaves, remainder: 0 };
+}
+
+/**
+ * Pull in negative series that bring an over-sum back to the concept.
+ * Hedging losses are the usual case: regions and segments are reported before
+ * them, so their sum sits above revenue until the loss is included.
+ */
+function closeOverage(
+  assembled: AssembledPeriod,
+  totalValue: number,
+  date: string,
+  points: PointIndex
+): PeriodDraft | null {
+  const excess = assembled.memberSum - totalValue;
+  const used = new Set(assembled.leaves.map(leaf => leaf.name));
+  const extra = negativeFillers(date, excess, used, points, totalValue);
+  if (!extra) return null;
+  assembled.leaves.push(...extra);
+  return { leaves: assembled.leaves, remainder: 0 };
+}
+
+function negativeFillers(
+  date: string,
+  excess: number,
+  used: Set<string>,
+  points: PointIndex,
+  totalValue: number
+): LeafDraft[] | null {
+  const target = -excess;
+  const band = Math.max(
+    tolerance(totalValue),
+    Math.abs(totalValue) * OVERAGE_REL_TOLERANCE
+  );
+  const candidates: Array<{ name: string; value: number }> = [];
+  for (const [name, byDate] of points) {
+    if (used.has(name)) continue;
+    const value = byDate.get(date)?.value;
+    if (value == null || value >= 0) continue;
+    if (Math.abs(value - target) > band) continue;
+    candidates.push({ name, value });
+  }
+  candidates.sort(
+    (a, b) =>
+      Math.abs(a.value - target) - Math.abs(b.value - target) ||
+      a.name.localeCompare(b.name)
+  );
+  if (candidates.length === 0) return null;
+  candidates.splice(16);
+
+  let bestMask: number | null = null;
+  let bestCount = -1;
+  let bestKey = "";
+  for (let mask = 1; mask < 1 << candidates.length; mask += 1) {
+    let sum = 0;
+    let count = 0;
+    const names: string[] = [];
+    for (let index = 0; index < candidates.length; index += 1) {
+      if ((mask & (1 << index)) === 0) continue;
+      sum += candidates[index].value;
+      count += 1;
+      names.push(candidates[index].name);
+    }
+    if (Math.abs(sum - target) > band) continue;
+    const key = names.join("\0");
+    if (
+      count > bestCount ||
+      (count === bestCount && (bestMask == null || key < bestKey))
+    ) {
+      bestCount = count;
+      bestMask = mask;
+      bestKey = key;
+    }
+  }
+  if (bestMask == null) return null;
+
+  const leaves: LeafDraft[] = [];
+  for (let index = 0; index < candidates.length; index += 1) {
+    if ((bestMask & (1 << index)) === 0) continue;
+    const candidate = candidates[index];
+    leaves.push({
+      name: candidate.name,
+      group: candidate.name,
+      nested: false,
+      value: candidate.value,
+    });
+  }
+  return leaves;
 }
 
 function exactFillers(
