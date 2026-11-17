@@ -81,8 +81,11 @@ type PointIndex = Map<string, Map<string, FinancialDataPoint>>;
  * the metric. A series the breakdowns never name is drawn only when its value
  * closes that gap, which is how Other Products joins iPhone, iPad, and Mac in
  * the years those lines added up. A gap below zero means that split does not
- * apply to the period. A member that itself has breakdowns, such as Products,
- * is drawn as those children when they do not exceed it.
+ * apply to the period, unless the members are coarser than the total and the
+ * overshoot is within half a rounding unit per member, capped at 0.1%. Those
+ * bars stay at the filed values. A member that itself has breakdowns, such as
+ * Products, is drawn as those children when they do not exceed it by more
+ * than that allowance.
  */
 export function resolveDimensionStack(
   data: FinancialData,
@@ -292,7 +295,7 @@ function periodForSplit(
 ): PeriodDraft {
   const stoodIn = assemblePeriod(members, date, points, childLists, true);
   if (stoodIn.leaves.length > 0) {
-    if (stoodIn.memberSum - totalValue <= tolerance(totalValue)) {
+    if (sumAccepted(stoodIn.memberSum, stoodIn.summed, totalValue)) {
       return closeGap(stoodIn, totalValue, date, points, namedMembers);
     }
     const closed = closeOverage(stoodIn, totalValue, date, points);
@@ -303,7 +306,7 @@ function periodForSplit(
   if (reported.leaves.length === 0) {
     return { leaves: [], remainder: totalValue };
   }
-  if (reported.memberSum - totalValue > tolerance(totalValue)) {
+  if (!sumAccepted(reported.memberSum, reported.summed, totalValue)) {
     return (
       closeOverage(reported, totalValue, date, points) ?? {
         leaves: [],
@@ -317,6 +320,8 @@ function periodForSplit(
 interface AssembledPeriod {
   leaves: LeafDraft[];
   memberSum: number;
+  /** Values added into memberSum, used for the coarse-rounding allowance. */
+  summed: number[];
   /** Parent replaced by its children. Set only when exactly one parent was. */
   substituted: string | null;
 }
@@ -329,6 +334,7 @@ function assemblePeriod(
   allowStandIn: boolean
 ): AssembledPeriod {
   const leaves: LeafDraft[] = [];
+  const summed: number[] = [];
   let memberSum = 0;
   let substituted: string | null = null;
   let substitutions = 0;
@@ -338,6 +344,7 @@ function assemblePeriod(
     const own = points.get(member)?.get(date)?.value;
     if (own != null) {
       memberSum += own;
+      summed.push(own);
       leaves.push(
         ...drillMember(
           member,
@@ -362,6 +369,7 @@ function assemblePeriod(
     );
     if (!standIn) continue;
     memberSum += sumLeaves(standIn);
+    summed.push(...standIn.map(leaf => leaf.value));
     leaves.push(...standIn);
     substitutions += 1;
     substituted = member;
@@ -370,6 +378,7 @@ function assemblePeriod(
   return {
     leaves,
     memberSum,
+    summed,
     substituted: substitutions === 1 ? substituted : null,
   };
 }
@@ -659,8 +668,13 @@ function drillMember(
     }
     const covered = sumLeaves(leaves);
     const gap = own - covered;
-    if (gap < -tolerance(own)) continue;
-    if (sumsMatch(covered, own)) return leaves;
+    const drawn = leaves
+      .filter(leaf => !leaf.conceptTotal)
+      .map(leaf => leaf.value);
+    if (gap < -Math.max(tolerance(own), coarseRoundingAllowance(drawn, own))) {
+      continue;
+    }
+    if (sumsMatch(covered, own) || covered > own) return leaves;
 
     if (covered > bestCoverage) {
       bestCoverage = covered;
@@ -835,6 +849,44 @@ function memberSignature(members: string[]): string {
 
 function tolerance(value: number): number {
   return Math.max(SUM_ABS_TOLERANCE, Math.abs(value) * SUM_REL_TOLERANCE);
+}
+
+/** Reporting unit of a filed amount. Zero and exact dollars are one dollar. */
+function roundingUnit(value: number): number {
+  const abs = Math.abs(value);
+  if (abs !== 0 && abs % 1_000_000 === 0) return 1_000_000;
+  if (abs !== 0 && abs % 1_000 === 0) return 1_000;
+  return 1;
+}
+
+/**
+ * Allowance from refresh_dimension_breakdowns for members coarser than the
+ * total: half a rounding unit each, capped at 0.1% of the total.
+ */
+function coarseRoundingAllowance(values: number[], totalValue: number): number {
+  const present = values.filter(value => value !== 0);
+  if (present.length === 0) return 0;
+  const memberUnit = present.reduce(
+    (unit, value) => Math.max(unit, roundingUnit(value)),
+    1
+  );
+  if (memberUnit <= roundingUnit(totalValue)) return 0;
+  return Math.min(
+    (present.length * memberUnit) / 2,
+    Math.abs(totalValue) / 1000
+  );
+}
+
+/** A sum at or below the total, or above it by no more than the rounding band. */
+function sumAccepted(
+  sum: number,
+  values: number[],
+  totalValue: number
+): boolean {
+  return (
+    sum - totalValue <=
+    Math.max(tolerance(totalValue), coarseRoundingAllowance(values, totalValue))
+  );
 }
 
 function sumsMatch(sum: number, target: number): boolean {
