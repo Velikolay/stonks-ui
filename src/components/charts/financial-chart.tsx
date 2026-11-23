@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ReactECharts from "echarts-for-react";
 import { FinancialData } from "@/lib/services/financial-data";
+import { formatChartAmount } from "@/lib/format-financial-amount";
 import {
   Select,
   SelectContent,
@@ -78,22 +79,7 @@ export function FinancialChart({
   selectedDimension = null,
   onDimensionChange,
 }: FinancialChartProps) {
-  const formatValue = (value: number) => {
-    const absValue = Math.abs(value);
-    const sign = value < 0 ? "-" : "";
-
-    if (absValue >= 1e12) {
-      return `${sign}$${(absValue / 1e12).toFixed(2)}T`;
-    } else if (absValue >= 1e9) {
-      return `${sign}$${(absValue / 1e9).toFixed(2)}B`;
-    } else if (absValue >= 1e6) {
-      return `${sign}$${(absValue / 1e6).toFixed(2)}M`;
-    } else if (absValue >= 1e3) {
-      return `${sign}$${(absValue / 1e3).toFixed(2)}K`;
-    } else {
-      return `${sign}$${absValue.toFixed(2)}`;
-    }
-  };
+  const formatValue = (value: number) => formatChartAmount(value, data.unit);
 
   const formatAxisDate = (date: string) =>
     new Date(date).toLocaleDateString("en-US", {

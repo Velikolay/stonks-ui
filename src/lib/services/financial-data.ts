@@ -21,6 +21,7 @@ interface RawMetricValue {
 interface RawMetricSeries {
   member?: string;
   normalized_label?: string;
+  unit?: string;
   values?: RawMetricValue[];
   /** Alternative ways to split this series. Present when breakdowns were requested. */
   breakdowns?: DimensionBreakdown[];
@@ -110,6 +111,8 @@ export interface FinancialDataSeries {
 export interface FinancialData {
   ticker: string;
   metric: string;
+  /** Reporting unit of the metric, such as `usd` or `eurPerShare`. */
+  unit?: string;
   granularity: "yearly" | "quarterly";
   series: FinancialDataSeries[]; // Always use series-based approach
   /**
@@ -126,6 +129,7 @@ export interface StatementData {
   metrics: Array<{
     normalized_label: string;
     axis?: string;
+    unit?: string;
     abstracts?: string[];
     data: FinancialDataPoint[];
     concept?: string;
@@ -224,10 +228,14 @@ export class FinancialDataService {
 
     const series = parseMetricSeries(memberRaw);
     const total = totalRaw ? parseMetricSeries(totalRaw)[0] : undefined;
+    const unit =
+      memberRaw.find(item => item.unit)?.unit ??
+      totalRaw?.find(item => item.unit)?.unit;
 
     return {
       ticker,
       metric: normalizedLabel,
+      unit,
       granularity,
       series,
       total,
@@ -308,6 +316,7 @@ export class FinancialDataService {
         normalized_label: string;
         axis?: string;
         member?: string;
+        unit?: string;
         abstracts?: string[];
         concept?: string;
         abstract_concepts?: string[];
@@ -340,6 +349,7 @@ export class FinancialDataService {
         return {
           normalized_label: item.normalized_label,
           axis: item.axis,
+          unit: item.unit,
           abstracts: item.abstracts,
           concept: item.concept,
           abstract_concepts: item.abstract_concepts,
