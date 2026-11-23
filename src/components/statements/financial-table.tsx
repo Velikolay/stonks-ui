@@ -388,6 +388,7 @@ interface FinancialTableProps {
   adminMode?: boolean;
   statement?: StatementType;
   showAllMetrics?: boolean;
+  currency?: "usd";
 }
 
 export function FinancialTable({
@@ -398,6 +399,7 @@ export function FinancialTable({
   adminMode = false,
   statement,
   showAllMetrics = false,
+  currency,
 }: FinancialTableProps) {
   const companyId = useMemo(() => {
     if (typeof companyIdProp === "number") return companyIdProp;
@@ -678,7 +680,8 @@ export function FinancialTable({
           selectedMetric.metric,
           selectedMetric.granularity,
           selectedDimension || undefined,
-          selectedMetric.statement
+          selectedMetric.statement,
+          currency
         );
         setChartData(financialData);
       } catch {
@@ -691,7 +694,7 @@ export function FinancialTable({
     if (selectedMetric) {
       fetchChartData();
     }
-  }, [selectedMetric, selectedDimension, data]);
+  }, [selectedMetric, selectedDimension, data, currency]);
 
   const handleCloseDialog = () => {
     setSelectedMetric(null);

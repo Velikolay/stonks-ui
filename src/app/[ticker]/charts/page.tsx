@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { ChartsPage } from "@/components/charts/charts-page";
 
 interface ChartsPageProps {
@@ -8,5 +9,9 @@ interface ChartsPageProps {
 
 export default async function Page({ params }: ChartsPageProps) {
   const { ticker } = await params;
-  return <ChartsPage ticker={ticker.toUpperCase()} />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ChartsPage ticker={ticker.toUpperCase()} />
+    </Suspense>
+  );
 }

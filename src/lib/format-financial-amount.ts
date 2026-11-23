@@ -8,6 +8,16 @@ const SYMBOLS: Record<string, string> = {
   KRW: "₩",
 };
 
+/** Money filed in a currency other than USD, including per-share amounts. */
+export function isForeignUnit(unit: string | undefined): boolean {
+  if (!unit) return false;
+  const code = unit
+    .trim()
+    .toLowerCase()
+    .match(/^([a-z]{3})(?:pershare)?$/)?.[1];
+  return code !== undefined && code !== "usd";
+}
+
 /** Symbol for a fact unit such as `eur` or `eurPerShare`. Share counts have none. */
 export function currencyMark(unit: string | undefined): string {
   if (!unit) return "$";

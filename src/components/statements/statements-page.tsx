@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { StatementType, STATEMENT_TYPES } from "@/lib/services/protocol";
+import { isForeignUnit } from "@/lib/format-financial-amount";
 
 interface StatementsPageProps {
   ticker: string;
@@ -32,6 +33,27 @@ const statementToUrlValue = (statement: StatementType): string => {
     "Statement of Equity": "statement-of-equity",
   };
   return mapping[statement];
+};
+
+const usdInUrl = (): boolean =>
+  new URLSearchParams(window.location.search).get("currency") === "usd";
+
+const writeUsdParam = (inUsd: boolean) => {
+  const params = new URLSearchParams(window.location.search);
+  if (inUsd) {
+    params.set("currency", "usd");
+  } else {
+    params.delete("currency");
+  }
+  const query = params.toString();
+  const newUrl = query
+    ? `${window.location.pathname}?${query}`
+    : window.location.pathname;
+  window.history.pushState(
+    { ...window.history.state, as: newUrl, url: newUrl },
+    "",
+    newUrl
+  );
 };
 
 const urlValueToStatement = (value: string): StatementType | null => {
@@ -95,6 +117,10 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
   const [filings, setFilings] = useState<FinancialFiling[]>([]);
   const [companyId, setCompanyId] = useState<number>(0);
   const [showAllMetrics, setShowAllMetrics] = useState<boolean>(false);
+  const [foreignIssuer, setForeignIssuer] = useState(false);
+  const [displayInUsd, setDisplayInUsd] = useState(
+    () => searchParams.get("currency") === "usd"
+  );
 
   const statements: StatementType[] = useMemo(() => STATEMENT_TYPES, []);
 
@@ -130,6 +156,10 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     if (urlActiveTab !== activeTab) {
       setActiveTab(urlActiveTab);
     }
+    const urlUsd = searchParams.get("currency") === "usd";
+    if (urlUsd !== displayInUsd) {
+      setDisplayInUsd(urlUsd);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -148,18 +178,23 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
       if (urlActiveTab !== activeTab) {
         setActiveTab(urlActiveTab);
       }
+      const urlUsd = usdInUrl();
+      if (urlUsd !== displayInUsd) {
+        setDisplayInUsd(urlUsd);
+      }
     };
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [granularity, activeTab]);
+  }, [granularity, activeTab, displayInUsd]);
 
   const fetchStatementData = useCallback(
     async (
       statement: StatementType,
       targetGranularity: Granularity,
-      isAdminMode: boolean
+      isAdminMode: boolean,
+      inUsd: boolean
     ) => {
       setLoading(prev => ({ ...prev, [statement]: true }));
 
@@ -170,7 +205,8 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
           ticker,
           statement,
           targetGranularity,
-          debug
+          debug,
+          inUsd ? "usd" : undefined
         );
         setStatementData(prev => ({
           ...prev,
@@ -194,6 +230,48 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     },
     [ticker]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    setForeignIssuer(false);
+    setDisplayInUsd(usdInUrl());
+    // Quarterly rows can be empty, so the filing currency is read from the
+    // yearly income statement.
+    const detectCurrency = async () => {
+      try {
+        const statement = await FinancialDataService.getStatementData(
+          ticker,
+          "Income Statement",
+          "yearly"
+        );
+        if (cancelled) return;
+        if (statement.metrics.some(metric => isForeignUnit(metric.unit))) {
+          setForeignIssuer(true);
+        }
+      } catch {
+        // A later statement response can still set the flag.
+      }
+    };
+    detectCurrency();
+    return () => {
+      cancelled = true;
+    };
+  }, [ticker]);
+
+  // Converted amounts are labeled USD, so remember a foreign filing currency
+  // from whichever response still carries it.
+  useEffect(() => {
+    const foreign = statements.some(statement =>
+      (["yearly", "quarterly"] as const).some(period => {
+        const data = statementData[statement][period];
+        return (
+          data?.ticker === ticker &&
+          data.metrics.some(metric => isForeignUnit(metric.unit))
+        );
+      })
+    );
+    if (foreign) setForeignIssuer(true);
+  }, [statementData, statements, ticker]);
 
   // Fetch filings when component mounts or when ticker changes
   useEffect(() => {
@@ -231,17 +309,30 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
     };
   }, [ticker]);
 
+  useEffect(() => {
+    if (!foreignIssuer || granularity === "yearly") return;
+    setGranularity("yearly");
+    updateQueryParams("yearly", activeTab);
+  }, [foreignIssuer, granularity, activeTab, updateQueryParams]);
+
   // Fetch data when component mounts or when granularity/ticker/adminMode changes
   // Only fetch if data doesn't exist for the current granularity
   // Note: We need to refetch when adminMode changes since it affects the API response
   useEffect(() => {
     statements.forEach(statement => {
       // Always fetch to ensure we have the correct data for the current adminMode
-      fetchStatementData(statement, granularity, adminMode);
+      fetchStatementData(statement, granularity, adminMode, displayInUsd);
     });
     // Note: We intentionally don't include statementData in deps to avoid
     // re-running when data loads. The effect only needs to run when granularity/ticker/adminMode changes.
-  }, [granularity, ticker, adminMode, fetchStatementData, statements]);
+  }, [
+    granularity,
+    ticker,
+    adminMode,
+    displayInUsd,
+    fetchStatementData,
+    statements,
+  ]);
 
   return (
     <div className="container mx-auto p-6">
@@ -263,16 +354,18 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
             >
               Yearly
             </Button>
-            <Button
-              variant={granularity === "quarterly" ? "default" : "outline"}
-              onClick={() => {
-                const newGranularity = "quarterly";
-                setGranularity(newGranularity);
-                updateQueryParams(newGranularity, activeTab);
-              }}
-            >
-              Quarterly
-            </Button>
+            {!foreignIssuer && (
+              <Button
+                variant={granularity === "quarterly" ? "default" : "outline"}
+                onClick={() => {
+                  const newGranularity = "quarterly";
+                  setGranularity(newGranularity);
+                  updateQueryParams(newGranularity, activeTab);
+                }}
+              >
+                Quarterly
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2 border-l pl-4">
             <div className="flex items-center space-x-2">
@@ -285,6 +378,24 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
                 Display All Metrics
               </Label>
             </div>
+            {foreignIssuer && (
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="statements-display-in-usd"
+                  checked={displayInUsd}
+                  onCheckedChange={inUsd => {
+                    setDisplayInUsd(inUsd);
+                    writeUsdParam(inUsd);
+                  }}
+                />
+                <Label
+                  htmlFor="statements-display-in-usd"
+                  className="cursor-pointer"
+                >
+                  USD
+                </Label>
+              </div>
+            )}
           </div>
         </div>
 
@@ -324,6 +435,7 @@ export function StatementsPage({ ticker }: StatementsPageProps) {
                     adminMode={adminMode}
                     statement={statement}
                     showAllMetrics={showAllMetrics}
+                    currency={displayInUsd ? "usd" : undefined}
                   />
                 </CardContent>
               </Card>

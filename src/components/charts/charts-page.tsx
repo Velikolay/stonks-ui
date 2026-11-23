@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -9,6 +10,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -23,12 +26,35 @@ import {
   FinancialMetric,
 } from "@/lib/services/financial-data";
 import { STATEMENT_TYPES } from "@/lib/services/protocol";
+import { isForeignUnit } from "@/lib/format-financial-amount";
 
 interface ChartsPageProps {
   ticker: string;
 }
 
+const usdInUrl = (): boolean =>
+  new URLSearchParams(window.location.search).get("currency") === "usd";
+
+const writeUsdParam = (inUsd: boolean) => {
+  const params = new URLSearchParams(window.location.search);
+  if (inUsd) {
+    params.set("currency", "usd");
+  } else {
+    params.delete("currency");
+  }
+  const query = params.toString();
+  const newUrl = query
+    ? `${window.location.pathname}?${query}`
+    : window.location.pathname;
+  window.history.pushState(
+    { ...window.history.state, as: newUrl, url: newUrl },
+    "",
+    newUrl
+  );
+};
+
 export function ChartsPage({ ticker }: ChartsPageProps) {
+  const searchParams = useSearchParams();
   const [allMetrics, setAllMetrics] = useState<FinancialMetric[]>([]);
   const [availableMetrics, setAvailableMetrics] = useState<FinancialMetric[]>(
     []
@@ -48,8 +74,59 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
   );
   const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
   const [showGrowthLine, setShowGrowthLine] = useState<boolean>(false);
+  const [foreignIssuer, setForeignIssuer] = useState(false);
+  const [displayInUsd, setDisplayInUsd] = useState(
+    () => searchParams.get("currency") === "usd"
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The filing currency is read once per ticker. Converted responses are USD,
+  // so they can no longer answer whether the issuer reports in another currency.
+  useEffect(() => {
+    let cancelled = false;
+    setForeignIssuer(false);
+    setDisplayInUsd(usdInUrl());
+    const detectCurrency = async () => {
+      try {
+        const statement = await FinancialDataService.getStatementData(
+          ticker,
+          "Income Statement",
+          "yearly"
+        );
+        if (cancelled) return;
+        setForeignIssuer(
+          statement.metrics.some(metric => isForeignUnit(metric.unit))
+        );
+      } catch {
+        if (!cancelled) setForeignIssuer(false);
+      }
+    };
+    detectCurrency();
+    return () => {
+      cancelled = true;
+    };
+  }, [ticker]);
+
+  useEffect(() => {
+    const urlUsd = searchParams.get("currency") === "usd";
+    if (urlUsd !== displayInUsd) {
+      setDisplayInUsd(urlUsd);
+    }
+    // The switch writes the URL itself, so this only follows navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const urlUsd = usdInUrl();
+      if (urlUsd !== displayInUsd) {
+        setDisplayInUsd(urlUsd);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [displayInUsd]);
 
   // Fetch available metrics when component mounts or ticker changes
   useEffect(() => {
@@ -139,7 +216,8 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
           selectedMetric.normalized_label,
           granularity,
           selectedDimension || undefined,
-          selectedMetric.statement
+          selectedMetric.statement,
+          displayInUsd ? "usd" : undefined
         );
         setFinancialData(data);
 
@@ -153,7 +231,13 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
     };
 
     fetchFinancialData();
-  }, [ticker, selectedMetric, selectedDimension, granularity]);
+  }, [ticker, selectedMetric, selectedDimension, granularity, displayInUsd]);
+
+  useEffect(() => {
+    if (foreignIssuer && granularity !== "yearly") {
+      setGranularity("yearly");
+    }
+  }, [foreignIssuer, granularity]);
 
   const handleGranularityToggle = () => {
     setGranularity(prev => (prev === "quarterly" ? "yearly" : "quarterly"));
@@ -257,14 +341,40 @@ export function ChartsPage({ ticker }: ChartsPageProps) {
               </div>
 
               {/* Granularity Toggle */}
-              <div className="flex items-end">
-                <Button
-                  variant={granularity === "quarterly" ? "default" : "outline"}
-                  onClick={handleGranularityToggle}
-                  className="w-full sm:w-auto"
-                >
-                  {granularity === "quarterly" ? "Quarterly" : "Yearly"}
-                </Button>
+              <div className="flex items-end gap-4">
+                {foreignIssuer ? (
+                  <Button variant="default" className="w-full sm:w-auto">
+                    Yearly
+                  </Button>
+                ) : (
+                  <Button
+                    variant={
+                      granularity === "quarterly" ? "default" : "outline"
+                    }
+                    onClick={handleGranularityToggle}
+                    className="w-full sm:w-auto"
+                  >
+                    {granularity === "quarterly" ? "Quarterly" : "Yearly"}
+                  </Button>
+                )}
+                {foreignIssuer && (
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="charts-display-in-usd"
+                      checked={displayInUsd}
+                      onCheckedChange={inUsd => {
+                        setDisplayInUsd(inUsd);
+                        writeUsdParam(inUsd);
+                      }}
+                    />
+                    <Label
+                      htmlFor="charts-display-in-usd"
+                      className="cursor-pointer"
+                    >
+                      USD
+                    </Label>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>

@@ -203,7 +203,8 @@ export class FinancialDataService {
     normalizedLabel: string,
     granularity: "yearly" | "quarterly",
     axis?: string,
-    statement?: StatementType
+    statement?: StatementType,
+    currency?: "usd"
   ): Promise<FinancialData> {
     // A dimension response is the axis members. The concept series, fetched
     // alongside it, lists each way those members can split the concept.
@@ -214,14 +215,17 @@ export class FinancialDataService {
         normalizedLabel,
         granularity,
         statement,
-        axis
+        axis,
+        currency
       ),
       axis
         ? this.fetchMetricSeries(
             ticker,
             normalizedLabel,
             granularity,
-            statement
+            statement,
+            undefined,
+            currency
           )
         : Promise.resolve(null),
     ]);
@@ -247,7 +251,8 @@ export class FinancialDataService {
     normalizedLabel: string,
     granularity: "yearly" | "quarterly",
     statement?: StatementType,
-    axis?: string
+    axis?: string,
+    currency?: "usd"
   ): Promise<RawMetricSeries[]> {
     const url = new URL(`${API_BASE_URL}/financials/`);
     url.searchParams.set("ticker", ticker);
@@ -258,6 +263,9 @@ export class FinancialDataService {
     }
     if (axis) {
       url.searchParams.set("axis", axis);
+    }
+    if (currency) {
+      url.searchParams.set("currency", currency);
     }
     // Breakdowns are omitted unless the chart asks for them. The concept
     // series lists each split; a member series lists the splits used to drill
@@ -288,7 +296,8 @@ export class FinancialDataService {
     ticker: string,
     statement: StatementType,
     granularity: "yearly" | "quarterly",
-    debug?: boolean
+    debug?: boolean,
+    currency?: "usd"
   ): Promise<StatementData> {
     const url = new URL(`${API_BASE_URL}/financials/`);
     url.searchParams.set("ticker", ticker);
@@ -297,6 +306,9 @@ export class FinancialDataService {
     url.searchParams.set("short", "true");
     if (debug) {
       url.searchParams.set("debug", "true");
+    }
+    if (currency) {
+      url.searchParams.set("currency", currency);
     }
 
     const response = await fetch(url.toString());
