@@ -52,6 +52,9 @@ export function formatStatementAmount(
   const absValue = Math.abs(value);
   const sign = value < 0 ? "-" : "";
   const mark = currencyMark(unit);
+  if (absValue >= 1e12) {
+    return `${sign}${mark}${(absValue / 1e12).toFixed(1)}T`;
+  }
   if (absValue >= 1e9) {
     return `${sign}${mark}${(absValue / 1e9).toFixed(1)}B`;
   }
