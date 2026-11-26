@@ -42,7 +42,13 @@ function parseBreakdowns(
       members.push(member);
     }
     if (members.length > 0) {
-      parsed.push({ axis: breakdown.axis, members });
+      parsed.push({
+        axis: breakdown.axis,
+        members,
+        fiscal_years: breakdown.fiscal_years?.length
+          ? [...breakdown.fiscal_years]
+          : undefined,
+      });
     }
   }
   return parsed.length > 0 ? parsed : undefined;
@@ -89,6 +95,12 @@ export class FinancialMetric {
 export interface DimensionBreakdown {
   axis: string;
   members: string[];
+  /**
+   * 10-K years the members add up in. A set that stopped before the axis's
+   * latest year and began before a current set is an earlier presentation of
+   * it: the chart uses it only for periods that set does not cover.
+   */
+  fiscal_years?: number[];
 }
 
 export interface FinancialDataPoint {
