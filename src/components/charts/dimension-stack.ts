@@ -215,11 +215,14 @@ function stackFromBreakdowns(
         )
       );
     }
-    // Before the view's first period that adds up, the view did not exist:
-    // members it shares by name with an older split are a coincidence, so a
-    // period no earlier presentation closes draws the metric bar alone
-    // (Microsoft's fiscal 2017 quarters, which only the ASC 606 restatement
-    // printed on product lines, beside its fiscal 2025 product lines).
+    // Before the view's first period that adds up, a period missing one of
+    // the view's members predates the view: the members it shares by name
+    // with an older split are a coincidence, so a period no earlier
+    // presentation closes draws the metric bar alone (Microsoft's fiscal 2017
+    // quarters, which only the ASC 606 restatement printed on product lines,
+    // beside its fiscal 2025 product lines). With every member present and
+    // short, it is a partial disclosure and is drawn (Netflix's streaming
+    // regions before DVD ended).
     const firstExact = [...own].find(([, draft]) => isExact(draft))?.[0];
     const resolved = new Map<string, PeriodDraft>();
     let exactPeriods = 0;
@@ -244,7 +247,14 @@ function stackFromBreakdowns(
           }
         }
       }
-      if (!isExact(draft) && (firstExact == null || date < firstExact)) {
+      const complete = split.members.every(member =>
+        points.get(member)?.has(date)
+      );
+      if (
+        !isExact(draft) &&
+        !complete &&
+        (firstExact == null || date < firstExact)
+      ) {
         draft = { leaves: [], remainder: totalValue };
       }
       resolved.set(date, draft);
@@ -503,8 +513,7 @@ function childrenInstead(
   splitMembers: Set<string>
 ): LeafDraft[] | null {
   const ancestors = new Set([name]);
-  let best: { present: number; sum: number; leaves: LeafDraft[] } | null =
-    null;
+  let best: { present: number; sum: number; leaves: LeafDraft[] } | null = null;
   for (const members of rankChildLists(
     childLists.get(name) ?? [],
     childLists
