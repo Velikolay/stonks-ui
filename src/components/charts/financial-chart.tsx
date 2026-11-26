@@ -797,15 +797,18 @@ function ChartLegend({
 
   return (
     <div className="flex flex-wrap items-start gap-x-6 gap-y-3 mt-3 px-1">
-      {groups.map(group => {
+      {groups.map((group, index) => {
         const groupActive = isGroupActive(group);
         const groupSelected = activeSelection.includes(group.name);
+        // A member's uncovered part is its own gray group under the member's
+        // name (Google beside Google's own lines), so names are not unique.
+        const key = `${group.conceptTotal ? "gray" : "group"}:${group.name}:${index}`;
         if (!group.nested) {
           const leaf = group.leaves[0];
           if (!leaf) return null;
           return (
             <LegendButton
-              key={leaf.name}
+              key={key}
               label={leaf.name}
               color={leaf.color}
               active={isLeafActive(leaf.name)}
@@ -817,7 +820,7 @@ function ChartLegend({
 
         return (
           <div
-            key={group.name}
+            key={key}
             className="flex flex-col gap-1 border-l-2 pl-2"
             style={{ borderColor: group.color }}
           >

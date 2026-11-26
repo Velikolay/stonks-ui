@@ -1,4 +1,5 @@
 import {
+  DimensionBreakdown,
   FinancialData,
   FinancialDataPoint,
   FinancialDataSeries,
@@ -159,8 +160,28 @@ function stackFromBreakdowns(
   const namedMembers = breakdownMemberNames(data, axis);
   const totalPoints = new Map(total.data.map(point => [point.date, point]));
   const dates = [...totalPoints.keys()].sort((a, b) => a.localeCompare(b));
-  const splits = (total.breakdowns ?? []).filter(
+  const allSplits = (total.breakdowns ?? []).filter(
     breakdown => breakdown.axis === axis && breakdown.members.length > 0
+  );
+  const { splits, earlierFor, earlier } = presentations(allSplits);
+  // A member that only an earlier presentation names still closes a gap in a
+  // view, as any unnamed member does: Microsoft's fiscal 2017 adds LinkedIn to
+  // its older product lines.
+  const viewNames = new Set(splits.flatMap(split => split.members));
+  const childNames = new Set(
+    data.series.flatMap(item =>
+      (item.breakdowns ?? [])
+        .filter(breakdown => breakdown.axis === axis)
+        .flatMap(breakdown => breakdown.members)
+    )
+  );
+  const namedInViews = new Set(
+    [...namedMembers].filter(
+      member =>
+        viewNames.has(member) ||
+        childNames.has(member) ||
+        !earlier.some(split => split.members.includes(member))
+    )
   );
 
   if (splits.length === 0) {
@@ -178,21 +199,56 @@ function stackFromBreakdowns(
   }
 
   const built = splits.map(split => {
-    const resolved = new Map<string, PeriodDraft>();
-    let exactPeriods = 0;
+    const own = new Map<string, PeriodDraft>();
     for (const date of dates) {
       const totalValue = totalPoints.get(date)?.value;
       if (totalValue == null) continue;
-      const draft = periodForSplit(
-        split.members,
-        totalValue,
+      own.set(
         date,
-        points,
-        childLists,
-        namedMembers
+        periodForSplit(
+          split.members,
+          totalValue,
+          date,
+          points,
+          childLists,
+          namedInViews
+        )
       );
+    }
+    // Before the view's first period that adds up, the view did not exist:
+    // members it shares by name with an older split are a coincidence, so a
+    // period no earlier presentation closes draws the metric bar alone
+    // (Microsoft's fiscal 2017 quarters, which only the ASC 606 restatement
+    // printed on product lines, beside its fiscal 2025 product lines).
+    const firstExact = [...own].find(([, draft]) => isExact(draft))?.[0];
+    const resolved = new Map<string, PeriodDraft>();
+    let exactPeriods = 0;
+    for (const [date, ownDraft] of own) {
+      const totalValue = totalPoints.get(date)!.value;
+      let draft = ownDraft;
+      if (!isExact(draft)) {
+        // A period the view does not cover is drawn on the newest of its
+        // earlier presentations that adds up there.
+        for (const previous of earlierFor(split)) {
+          const filled = periodForSplit(
+            previous.members,
+            totalValue,
+            date,
+            points,
+            childLists,
+            namedMembers
+          );
+          if (isExact(filled)) {
+            draft = filled;
+            break;
+          }
+        }
+      }
+      if (!isExact(draft) && (firstExact == null || date < firstExact)) {
+        draft = { leaves: [], remainder: totalValue };
+      }
       resolved.set(date, draft);
-      if (draft.leaves.length > 0 && draft.remainder === 0) exactPeriods += 1;
+      if (isExact(draft)) exactPeriods += 1;
     }
     const view = materialize(data.metric, dates, resolved, totalPoints, points);
     return {
@@ -246,6 +302,54 @@ function stackFromBreakdowns(
     })),
     defaultCutId: preferred.id,
   };
+}
+
+/**
+ * The splits drawn as views, and the earlier presentations that fill each.
+ *
+ * The current splits add up in the axis's latest year. A split that stops
+ * before that year and began before some current split is an earlier
+ * presentation of that split, even when it overlaps it for a year or two:
+ * the filer moved to a new split (Alphabet's U.S., U.K. and rest of the
+ * world, reported beside its 2015 regions through 2016). It is not a view of
+ * its own; a view uses the most recent of its earlier presentations that
+ * adds up in a period the view does not cover, so the later split wins
+ * wherever both apply. Microsoft's fiscal 2025 product lines therefore
+ * continue its fiscal 2018-2021 and older product lines, while product and
+ * service revenue, current since fiscal 2018, takes only the splits that
+ * began before 2018. A stopped split that began with every current one
+ * stays an alternative view. Splits without years are views.
+ */
+function presentations(all: DimensionBreakdown[]): {
+  splits: DimensionBreakdown[];
+  earlierFor: (split: DimensionBreakdown) => DimensionBreakdown[];
+  earlier: DimensionBreakdown[];
+} {
+  const years = (split: DimensionBreakdown) => split.fiscal_years ?? [];
+  const last = (split: DimensionBreakdown) =>
+    Math.max(-Infinity, ...years(split));
+  const first = (split: DimensionBreakdown) =>
+    Math.min(Infinity, ...years(split));
+  const latestYear = Math.max(-Infinity, ...all.map(last));
+  if (!Number.isFinite(latestYear)) {
+    return { splits: all, earlierFor: () => [], earlier: [] };
+  }
+  const current = all.filter(split => last(split) === latestYear);
+  const stopped = (split: DimensionBreakdown) =>
+    years(split).length > 0 && last(split) < latestYear;
+  const isEarlier = (split: DimensionBreakdown) =>
+    stopped(split) && current.some(view => first(split) < first(view));
+  const splits = all.filter(split => !isEarlier(split));
+  const earlier = all.filter(isEarlier).sort((a, b) => last(b) - last(a));
+  const earlierFor = (view: DimensionBreakdown) =>
+    years(view).length === 0
+      ? []
+      : earlier.filter(split => first(split) < first(view));
+  return { splits, earlierFor, earlier };
+}
+
+function isExact(draft: PeriodDraft): boolean {
+  return draft.leaves.length > 0 && draft.remainder === 0;
 }
 
 /** Member name to the alternative child splits reported on that member's series. */
@@ -386,6 +490,10 @@ function assemblePeriod(
 /**
  * Children of a member that was not reported this period.
  * They keep the parent's legend group, since they are that member's breakdown.
+ * Of the member's splits, the one with the most children reported that
+ * period stands in, then the larger sum: Alphabet's Google was not reported
+ * for 2018's quarters, which its properties, network and other revenues
+ * cover, while only advertising of its 2019 split has a value.
  */
 function childrenInstead(
   name: string,
@@ -395,6 +503,8 @@ function childrenInstead(
   splitMembers: Set<string>
 ): LeafDraft[] | null {
   const ancestors = new Set([name]);
+  let best: { present: number; sum: number; leaves: LeafDraft[] } | null =
+    null;
   for (const members of rankChildLists(
     childLists.get(name) ?? [],
     childLists
@@ -423,9 +533,16 @@ function childrenInstead(
         )
       );
     }
-    return leaves;
+    const sum = sumLeaves(leaves);
+    if (
+      !best ||
+      present.length > best.present ||
+      (present.length === best.present && sum > best.sum)
+    ) {
+      best = { present: present.length, sum, leaves };
+    }
   }
-  return null;
+  return best?.leaves ?? null;
 }
 
 /**
