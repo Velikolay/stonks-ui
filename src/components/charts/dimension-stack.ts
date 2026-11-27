@@ -10,6 +10,13 @@ const SUM_REL_TOLERANCE = 1e-6;
 // A restated quarter can leave the year-to-date roll-forward about a million
 // dollars off a hundred-billion total. That miss is still the hedge.
 const OVERAGE_REL_TOLERANCE = 1e-5;
+/**
+ * Members may exceed their total by this share and still draw: a calculated
+ * Q4 whose year and nine months come from filings rounded differently
+ * overshoots by a fraction of a unit (Tesla's Q4 2018 cost of revenue,
+ * 190 thousand on 5.8 billion). Two splits mixed overshoot by far more.
+ */
+const ROUNDING_OVERAGE_REL_TOLERANCE = 1e-4;
 
 export interface StackSegment {
   name: string;
@@ -82,9 +89,10 @@ type PointIndex = Map<string, Map<string, FinancialDataPoint>>;
  * the metric. A series the breakdowns never name is drawn only when its value
  * closes that gap, which is how Other Products joins iPhone, iPad, and Mac in
  * the years those lines added up. A gap below zero means that split does not
- * apply to the period, unless the members are coarser than the total and the
- * overshoot is within half a rounding unit per member, capped at 0.1%. Those
- * bars stay at the filed values. A member that itself has breakdowns, such as
+ * apply to the period, unless the members are rounded no finer than the
+ * total and the miss is within half a rounding unit per member, capped at
+ * 0.1%, which also excuses a shortfall that small. Those bars stay at the
+ * filed values. A member that itself has breakdowns, such as
  * Products, is drawn as those children when they do not exceed it by more
  * than that allowance.
  */
@@ -229,9 +237,17 @@ function stackFromBreakdowns(
     for (const [date, ownDraft] of own) {
       const totalValue = totalPoints.get(date)!.value;
       let draft = ownDraft;
-      if (!isExact(draft)) {
-        // A period the view does not cover is drawn on the newest of its
-        // earlier presentations that adds up there.
+      const complete = split.members.every(member =>
+        points.get(member)?.has(date)
+      );
+      // A period the view does not cover is drawn on the newest of its
+      // earlier presentations that adds up there. A view missing one of its
+      // members does not cover the period even when other series fill the
+      // gap: Microsoft's fiscal 2027 Agents and Infra and Devices and
+      // Consumer beside December 2014, where the older Devices and Consumer
+      // segment and Commercial plus Corporate and Other (13,272 + 314) closed
+      // the view and kept Commercial from opening into its split.
+      if (!isExact(draft) || !complete) {
         for (const previous of earlierFor(split)) {
           const filled = periodForSplit(
             previous.members,
@@ -247,9 +263,6 @@ function stackFromBreakdowns(
           }
         }
       }
-      const complete = split.members.every(member =>
-        points.get(member)?.has(date)
-      );
       if (
         !isExact(draft) &&
         !complete &&
@@ -434,7 +447,7 @@ function periodForSplit(
 interface AssembledPeriod {
   leaves: LeafDraft[];
   memberSum: number;
-  /** Values added into memberSum, used for the coarse-rounding allowance. */
+  /** Values added into memberSum, used for the rounding allowance. */
   summed: number[];
   /** Parent replaced by its children. Set only when exactly one parent was. */
   substituted: string | null;
@@ -569,6 +582,10 @@ function closeGap(
 ): PeriodDraft {
   const remainder = unallocated(assembled.memberSum, totalValue);
   if (remainder === 0) return { leaves: assembled.leaves, remainder };
+  const values = assembled.leaves.map(leaf => leaf.value);
+  if (remainder <= roundingAllowance(values, totalValue)) {
+    return { leaves: assembled.leaves, remainder: 0 };
+  }
 
   const used = new Set(assembled.leaves.map(leaf => leaf.name));
   const extra = exactFillers(date, remainder, used, namedMembers, points);
@@ -797,7 +814,7 @@ function drillMember(
     const drawn = leaves
       .filter(leaf => !leaf.conceptTotal)
       .map(leaf => leaf.value);
-    if (gap < -Math.max(tolerance(own), coarseRoundingAllowance(drawn, own))) {
+    if (gap < -Math.max(tolerance(own), roundingAllowance(drawn, own))) {
       continue;
     }
     if (sumsMatch(covered, own) || covered > own) return leaves;
@@ -986,17 +1003,25 @@ function roundingUnit(value: number): number {
 }
 
 /**
- * Allowance from refresh_dimension_breakdowns for members coarser than the
- * total: half a rounding unit each, capped at 0.1% of the total.
+ * How far rounded members may miss their total, either way: half a rounding
+ * unit each, capped at 0.1% of the total, the rule
+ * refresh_dimension_breakdowns stores a year by when members are coarser
+ * than the total (S&P Global's FY2009 segments in tenths of a million,
+ * 5,951.0 beside revenue of 5,951.782 in thousands). Members rounded like
+ * the total miss it too: segments in millions summing to 704 beside an
+ * operating income of 703, and a calculated Q4 that subtracts nine months
+ * rounded member by member (S&P Global's Q4 2012 segments, 1,226 beside
+ * 1,227). Members finer than the total get no allowance, and the cap keeps
+ * any missing member larger than 0.1% from passing.
  */
-function coarseRoundingAllowance(values: number[], totalValue: number): number {
+function roundingAllowance(values: number[], totalValue: number): number {
   const present = values.filter(value => value !== 0);
   if (present.length === 0) return 0;
   const memberUnit = present.reduce(
     (unit, value) => Math.max(unit, roundingUnit(value)),
     1
   );
-  if (memberUnit <= roundingUnit(totalValue)) return 0;
+  if (memberUnit < roundingUnit(totalValue)) return 0;
   return Math.min(
     (present.length * memberUnit) / 2,
     Math.abs(totalValue) / 1000
@@ -1011,7 +1036,11 @@ function sumAccepted(
 ): boolean {
   return (
     sum - totalValue <=
-    Math.max(tolerance(totalValue), coarseRoundingAllowance(values, totalValue))
+    Math.max(
+      tolerance(totalValue),
+      roundingAllowance(values, totalValue),
+      Math.abs(totalValue) * ROUNDING_OVERAGE_REL_TOLERANCE
+    )
   );
 }
 
